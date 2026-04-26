@@ -1,0 +1,24 @@
+.details{
+  background: #fff;
+  max-width: 300px;
+  margin: 20px auto;
+  padding: 25px;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+.cart{
+  background-color:lch(57.57% 96.71 45.49);
+  color:white;
+  cursor: pointer;
+  padding: 20px 170px;
+  border: none;
+  border-radius: 5px;
+  margin-left:200px;
+}
+
+.cart:hover {
+  background-color: orange;
+}
+.bt{
+  background-color:lch(57.57% 96.71 45.49);
+}

@@ -1,0 +1,106 @@
+
+.card {
+  background: #fff;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 25px;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+.title {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.label {
+  font-size: 14px;
+}
+
+.label span {
+  color: red;
+}
+
+.input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.btn {
+  width: 100%;
+  background-color: #ff5a1f;
+  color: #fff;
+  border: none;
+  padding: 12px;
+  margin-top: 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.btn:hover {
+  background-color: #e64a19;
+}
+
+.register-text {
+  text-align: center;
+  margin-top: 15px;
+}
+
+.register-text a {
+  color: #1e88e5;
+  text-decoration: none;
+}
+
+.divider {
+  text-align: center;
+  margin: 20px 0;
+  position: relative;
+}
+
+.divider span {
+  background: #fff;
+  padding: 0 10px;
+  color: #777;
+}
+
+.divider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: #ddd;
+  z-index: -1;
+}
+
+.google {
+  display: flex;
+  justify-content: center;
+}
+
+.google img {
+  width: 40px;
+  cursor: pointer;
+}
+
+.terms {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.terms a {
+  color: #1e88e5;
+  text-decoration: none;
+}
+.admin {
+  color:#1e88e5;
+  text-align:center;
+
+}
+
+

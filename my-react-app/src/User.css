@@ -1,0 +1,120 @@
+/* Container */
+.manage-users {
+  padding: 25px;
+  background: #f9fafc;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+}
+
+.manage-users h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.search-box {
+  padding: 10px;
+  width: 280px;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  transition: 0.3s;
+}
+
+.search-box:focus {
+  border-color: #ff5a1f;
+  box-shadow: 0 0 5px rgba(255, 90, 31, 0.3);
+}
+
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+
+thead {
+  background: linear-gradient(to right, #ff5a1f, #ff7a3d);
+  color: white;
+}
+
+th {
+  padding: 14px;
+  font-size: 14px;
+}
+
+
+td {
+  padding: 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #eee;
+}
+
+
+tbody tr:hover {
+  background: #f5f5f5;
+}
+
+
+.active {
+  color: green;
+  font-weight: bold;
+}
+
+.blocked {
+  color: red;
+  font-weight: bold;
+}
+
+
+button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  margin: 2px;
+  transition: 0.3s;
+}
+
+.block-btn {
+  background: #ff9800;
+  color: white;
+}
+
+.block-btn:hover {
+  background: #e68900;
+}
+
+.delete-btn {
+  background: #e53935;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #c62828;
+}
+
+
+.edit-btn {
+  background: #2196f3;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #1976d2;
+}
+
+
+.update-btn {
+  background: #4caf50;
+  color: white;
+}
+
+.update-btn:hover {
+  background: #388e3c;
+}

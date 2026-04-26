@@ -1,0 +1,33 @@
+
+.success-container{
+  height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-box{
+  text-align: center;
+  padding: 40px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.checkmark{
+  width: 70px;
+  height: 70px;
+  background: green;
+  color: white;
+  font-size: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  margin-bottom: 20px;
+}
+
+.order-id{
+  margin-top: 10px;
+  color: #555;
+}
