@@ -82,6 +82,8 @@ app.post("/register", async (req, res) => {
 app.post("/sendOtp", async (req, res) => {
   try {
     const { email } = req.body;
+    console.log("EMAIL:", email);
+    console.log("API KEY:", process.env.SENDGRID_API_KEY ? "OK" : "MISSING");
     const otp = Math.floor(100000 + Math.random() * 900000);
 
     const user = await CustomerModel.findOne({ email });
@@ -103,22 +105,6 @@ app.post("/sendOtp", async (req, res) => {
   }
 });
 
-
-app.post("/verifyOtp", async (req, res) => {
-  const { email, otp } = req.body;
-
-  const user = await CustomerModel.findOne({ email });
-
-  if (user && user.otp == otp) {
-    user.isVerified = true;
-    user.otp = null;
-    await user.save();
-
-    res.json({ success: true });
-  } else {
-    res.json({ success: false });
-  }
-});
 
 
 app.post("/login", async (req, res) => {
