@@ -48,7 +48,6 @@ const upload = multer({ storage });
 console.log("EMAIL:", process.env.EMAIL_USER);
 console.log("PASS:", process.env.EMAIL_PASS);
 
-import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
   service: "SendGrid",
