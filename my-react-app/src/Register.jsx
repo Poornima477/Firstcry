@@ -10,40 +10,38 @@ function Register() {
 
   const navigate = useNavigate()
   const [otp, setOtp] = useState("");
+
   const handleSubmit = (e) => {
   e.preventDefault();
-  axios.post("https://firstcry-backend.onrender.com/register", { name, email, password })
+  
+  // Step 1: Register first
+  axios.post("https://firstcry-backend1.onrender.com/register", { name, email, password })
     .then(res => {
       if (res.data.success) {
-        alert("Registered! Sending OTP...");
-        sendVerifyOtp(); 
+        alert("Registered! Sending OTP to your email...");
+        // Step 2: Auto-send OTP after successful registration
+        sendVerifyOtp();
       } else {
-        alert(res.data.message);
+        alert(res.data.message); // e.g. "Email exists"
       }
     })
     .catch(err => console.log(err));
 };
 
- 
-  const sendVerifyOtp = () => {
-  console.log("Send OTP clicked");
-
+ const sendVerifyOtp = () => {
   if (!email) {
     alert("Please enter email first");
     return;
   }
-
-  axios.post("https://firstcry-backend.onrender.com/sendVerifyOtp", { email })
+  axios.post("https://firstcry-backend1.onrender.com/sendVerifyOtp", { email })
     .then(res => {
       if (res.data.success) {
-        alert("OTP sent to email");
+        alert("OTP sent to your email!");
       } else {
         alert(res.data.message);
       }
     })
-    .catch(err => {
-      console.log(err);
-    });
+    .catch(err => console.log(err));
 };
 
 
@@ -100,8 +98,7 @@ function Register() {
 
 
         <div className="form-details">
-          <button type="button" className="otp-btn" onClick={sendVerifyOtp}>Get OTP</button>
-          
+        
         </div>
 
         <div className="form-details">
@@ -109,8 +106,8 @@ function Register() {
           <input type="text" placeholder="OTP" onChange={e => setOtp(e.target.value)} />
           <button type="button" onClick={verifyOtp}>Verify OTP</button>
         </div>
-
-        <button className="register">Register</button>
+        <button className="register" type="submit">Register & Send OTP</button>
+          
       </div>
     </form>
   );
