@@ -10,20 +10,19 @@ function Register() {
 
   const navigate = useNavigate()
   const [otp, setOtp] = useState("");
-
   const handleSubmit = (e) => {
-    e.preventDefault();
-
+  e.preventDefault();
   axios.post("https://firstcry-backend.onrender.com/register", { name, email, password })
-  .then(res => {
-   if (res.data.success) {
-     alert("Registered Successfully. Please verify your email.");
-   } else {
-    alert(res.data.message);
-        }
-      })
-  .catch(err => console.log(err));
-  };
+    .then(res => {
+      if (res.data.success) {
+        alert("Registered! Sending OTP...");
+        sendVerifyOtp(); 
+      } else {
+        alert(res.data.message);
+      }
+    })
+    .catch(err => console.log(err));
+};
 
  
   const sendVerifyOtp = () => {

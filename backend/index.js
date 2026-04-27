@@ -45,8 +45,8 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-console.log("EMAIL:", process.env.EMAIL_USER);
-console.log("PASS:", process.env.EMAIL_PASS);
+console.log("EMAIL:", process.env.SENDGRID_EMAIL);
+console.log("PASS:", process.env.SENDGRID_API_KEY);
 
 
 const transporter = nodemailer.createTransport({
@@ -96,7 +96,7 @@ app.post("/sendVerifyOtp", async (req, res) => {
 
     // ✅ Send Email
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_USER, // 🔴 must match your email config
+      from: "poornimasg03@gmail.com", // 🔴 must match your email config
       to: email,
       subject: "OTP Verification",
       text: `Your OTP is ${otp}`
@@ -118,6 +118,22 @@ app.post("/sendVerifyOtp", async (req, res) => {
       success: false,
       error: err.message
     });
+  }
+});
+
+
+app.get("/testmail", async (req, res) => {
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.SENDGRID_EMAIL,
+      to: process.env.SENDGRID_EMAIL,
+      subject: "Test",
+      text: "Working!"
+    });
+    res.json({ success: true });
+  } catch (err) {
+    // This will show the EXACT error
+    res.json({ success: false, error: err.message });
   }
 });
 
