@@ -144,7 +144,10 @@ app.post("/verifyOtp", async (req, res) => {
   }
 });
 
-
+app.get("/test", (req, res) => {
+  console.log("TEST API HIT");
+  res.send("Working");
+});
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
