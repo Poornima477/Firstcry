@@ -62,38 +62,62 @@ app.post("/sendVerifyOtp", async (req, res) => {
   try {
     const { email } = req.body;
 
-    console.log("Incoming email:", email);
+    console.log("STEP 1: Request received ->", email);
 
+    // ✅ Check email
     if (!email) {
-      return res.status(400).json({ success: false, message: "Email required" });
+      console.log("STEP 2: Email missing");
+      return res.status(400).json({
+        success: false,
+        message: "Email required"
+      });
     }
 
+    // ✅ Find user
     const user = await CustomerModel.findOne({ email });
+    console.log("STEP 3: User found ->", user);
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      console.log("STEP 3 FAILED: User not found");
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
     }
 
+    // ✅ Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
+    console.log("STEP 4: OTP generated ->", otp);
 
+    // ✅ Save OTP
     user.otp = otp;
     await user.save();
+    console.log("STEP 5: OTP saved to DB");
 
-    // ✅ Send mail
-    await transporter.sendMail({
-      from: "poornimasg03@gmail.com", // 🔴 MUST be verified in SendGrid
+    // ✅ Send Email
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_USER, // 🔴 must match your email config
       to: email,
       subject: "OTP Verification",
       text: `Your OTP is ${otp}`
     });
 
-    console.log("OTP sent successfully");
+    console.log("STEP 6: Mail sent successfully ->", info.response || info);
 
-    res.json({ success: true });
+    // ✅ Final response
+    res.json({
+      success: true,
+      message: "OTP sent successfully"
+    });
 
   } catch (err) {
-    console.log("OTP ERROR FULL:", err);
-    res.status(500).json({ success: false, error: err.message });
+    console.log("🔥 OTP ERROR FULL:", err);
+    console.log("🔥 ERROR MESSAGE:", err.message);
+
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
   }
 });
 
