@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-function UserPanel() {
+function Userpanel() {
   const [users, setUsers] = useState([]);
   const [editUser, setEditUser] = useState(null);
 
@@ -108,4 +108,4 @@ function UserPanel() {
   );
 }
 
-export default UserPanel;
+export default Userpanel;

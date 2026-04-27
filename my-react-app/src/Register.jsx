@@ -26,12 +26,14 @@ function Register() {
   };
 
  
-  const sendOtp = () => {
+  const sendVerifyOtp = () => {
   console.log("Send OTP clicked");
-   if (!email) {
+
+  if (!email) {
     alert("Please enter email first");
     return;
   }
+
   axios.post("https://firstcry-backend.onrender.com/sendVerifyOtp", { email })
     .then(res => {
       if (res.data.success) {
@@ -44,6 +46,7 @@ function Register() {
       console.log(err);
     });
 };
+
 
   const verifyOtp = () => {
   axios.post("https://firstcry-backend.onrender.com/verifyOtp", { email, otp })
@@ -98,7 +101,8 @@ function Register() {
 
 
         <div className="form-details">
-          <button type="button" className="otp-btn" onClick={sendOtp}>Get OTP</button>
+          <button type="button" className="otp-btn" onClick={sendVerifyOtp}>Get OTP</button>
+          
         </div>
 
         <div className="form-details">

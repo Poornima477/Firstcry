@@ -45,14 +45,82 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+console.log("EMAIL:", process.env.EMAIL_USER);
+console.log("PASS:", process.env.EMAIL_PASS);
+
+import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  service: "SendGrid",
   auth: {
-    user: process.env.SENDGRID_EMAIL,
+    user: "apikey", 
     pass: process.env.SENDGRID_API_KEY
   }
 });
+
+
+app.post("/sendVerifyOtp", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log("Incoming email:", email);
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email required" });
+    }
+
+    const user = await CustomerModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+
+    user.otp = otp;
+    await user.save();
+
+    // ✅ Send mail
+    await transporter.sendMail({
+      from: "poornimasg03@gmail.com", // 🔴 MUST be verified in SendGrid
+      to: email,
+      subject: "OTP Verification",
+      text: `Your OTP is ${otp}`
+    });
+
+    console.log("OTP sent successfully");
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.log("OTP ERROR FULL:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+app.post("/verifyOtp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await CustomerModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.otp == otp) {
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ success: false, message: "Invalid OTP" });
+    }
+
+  } catch (err) {
+    console.log("VERIFY ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
 
 
 const razorpay = new Razorpay({
@@ -75,33 +143,6 @@ app.post("/register", async (req, res) => {
     res.json({ success: true, message: "Registered" });
   } catch (err) {
     res.status(500).json({ message: "Error" });
-  }
-});
-
-
-app.post("/sendOtp", async (req, res) => {
-  try {
-    const { email } = req.body;
-    console.log("EMAIL:", email);
-    console.log("API KEY:", process.env.SENDGRID_API_KEY ? "OK" : "MISSING");
-    const otp = Math.floor(100000 + Math.random() * 900000);
-
-    const user = await CustomerModel.findOne({ email });
-    if (!user) return res.json({ success: false, message: "User not found" });
-
-    user.otp = otp;
-    await user.save();
-
-    await transporter.sendMail({
-      from: process.env.SENDGRID_EMAIL,
-      to: email,
-      subject: "OTP Verification",
-      text: `Your OTP is ${otp}`
-    });
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false });
   }
 });
 

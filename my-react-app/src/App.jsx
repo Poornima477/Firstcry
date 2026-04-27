@@ -22,7 +22,7 @@ import Payment from "./Payment";
 import Manageorder from "./Manageorder";
 import Editorder from "./Editorder";
 import Search from "./Search";
-import USer from "./User";
+import Userpanel from "./Userpanel";
 
 function App() {
 
@@ -65,7 +65,7 @@ function App() {
         <Route path="/Payment" element={<Payment/>} />
          <Route path="/Manageorder" element={<Manageorder/>} />
         <Route path="/search" element={<Search/>} />
-        <Route path="/User" element={<User/>} />
+        <Route path="/Userpanel" element={<Userpanel/>} />
           
         
         <Route path="/login" element={<Login />} />
