@@ -18,7 +18,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ✅ CORS — allow both local dev and Netlify
 app.use(cors({
   origin: [
     "http://localhost:5173",
@@ -43,7 +42,7 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// ✅ SendGrid via SMTP
+// ✅ SendGrid SMTP
 const transporter = nodemailer.createTransport({
   host: "smtp.sendgrid.net",
   port: 587,
@@ -54,25 +53,45 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// ✅ Register
+// ===============================
+// ✅ REGISTER
+// ===============================
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const existing = await CustomerModel.findOne({ email });
-    if (existing) return res.json({ success: false, message: "Email already exists" });
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: "All fields required" });
+    }
 
-    const user = new CustomerModel({ name, email, password });
-    await user.save();
+    let user = await CustomerModel.findOne({ email });
+
+    // If user exists and already verified → ask to login
+    if (user && user.isVerified) {
+      return res.json({ success: false, message: "Email already registered. Please login." });
+    }
+
+    // If user exists but not verified → allow re-registration
+    if (!user) {
+      user = new CustomerModel({ name, email, password });
+      await user.save();
+      console.log("New user created:", email);
+    }
 
     res.json({ success: true, message: "Registered successfully" });
+
   } catch (err) {
     console.error("Register error:", err.message);
+    if (err.code === 11000) {
+      return res.json({ success: false, message: "Email already exists. Please login." });
+    }
     res.status(500).json({ success: false, message: "Registration failed" });
   }
 });
 
-// ✅ Send OTP
+// ===============================
+// ✅ SEND OTP
+// ===============================
 app.post("/sendVerifyOtp", async (req, res) => {
   try {
     const { email } = req.body;
@@ -91,20 +110,25 @@ app.post("/sendVerifyOtp", async (req, res) => {
 
     user.otp = otp;
     await user.save();
+    console.log("OTP saved to DB");
 
     await transporter.sendMail({
       from: process.env.SENDGRID_EMAIL,
       to: email,
       subject: "OTP Verification - FirstCry",
       html: `
-        <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;padding:30px;border:1px solid #eee;border-radius:10px;">
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;
+                    padding:30px;border:1px solid #eee;border-radius:10px;">
           <h2 style="color:#e91e63;">FirstCry - Email Verification</h2>
           <p>Hello <strong>${user.name}</strong>,</p>
           <p>Your OTP for email verification is:</p>
-          <div style="font-size:36px;font-weight:bold;letter-spacing:10px;color:#e91e63;text-align:center;padding:20px 0;">
+          <div style="font-size:36px;font-weight:bold;letter-spacing:10px;
+                      color:#e91e63;text-align:center;padding:20px 0;">
             ${otp}
           </div>
-          <p style="color:#888;font-size:13px;">Valid for 10 minutes. Do not share with anyone.</p>
+          <p style="color:#888;font-size:13px;">
+            Valid for 10 minutes. Do not share with anyone.
+          </p>
         </div>
       `
     });
@@ -118,7 +142,9 @@ app.post("/sendVerifyOtp", async (req, res) => {
   }
 });
 
-// ✅ Verify OTP
+// ===============================
+// ✅ VERIFY OTP
+// ===============================
 app.post("/verifyOtp", async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -138,7 +164,7 @@ app.post("/verifyOtp", async (req, res) => {
       user.isVerified = true;
       user.otp = null;
       await user.save();
-      res.json({ success: true, message: "Email verified successfully!" });
+      res.json({ success: true, message: "Email verified! Registration complete." });
     } else {
       res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
     }
@@ -149,44 +175,9 @@ app.post("/verifyOtp", async (req, res) => {
   }
 });
 
-// ✅ Login
-app.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await CustomerModel.findOne({ email });
-    if (!user) return res.json({ success: false, message: "No user found" });
-    if (user.password !== password) return res.json({ success: false, message: "Wrong password" });
-    res.json({ success: true, message: "Login successful" });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-app.get("/test", (req, res) => res.send("Server working!"));
-
-app.get("/testmail", async (req, res) => {
-  try {
-    await transporter.sendMail({
-      from: process.env.SENDGRID_EMAIL,
-      to: process.env.SENDGRID_EMAIL,
-      subject: "Test Mail",
-      text: "SendGrid is working!"
-    });
-    res.json({ success: true });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
-  }
-});
-
-
-
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
-
-
+// ===============================
+// ✅ LOGIN  (only one — duplicate removed)
+// ===============================
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -197,21 +188,24 @@ app.post("/login", async (req, res) => {
 
     const user = await CustomerModel.findOne({ email });
     if (!user) {
-      return res.json({ success: false, message: "No account found with this email" });
+      return res.json({ success: false, message: "No account found. Please register first." });
+    }
+
+    if (!user.isVerified) {
+      return res.json({ success: false, message: "Email not verified. Please complete OTP verification." });
     }
 
     if (user.password !== password) {
       return res.json({ success: false, message: "Wrong password. Please try again." });
     }
 
-    res.json({ success: true, message: "Login successful" });
+    res.json({ success: true, message: "Login successful", user: { name: user.name, email: user.email } });
 
   } catch (err) {
     console.error("Login error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 
 
 

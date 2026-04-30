@@ -76,7 +76,8 @@ function Login() {
 
           <p className="terms">
             By continuing, you agree to FirstCry's
-            <a href="#"> Terms of Use</a> and <a href="#"> Privacy Policy</a>
+            <a href="#"> Terms of Use</a> and
+            <a href="#"> Privacy Policy</a>
           </p>
 
           <p className="admin">
