@@ -4,7 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";   // ← use official SendGrid package
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
@@ -18,7 +18,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ✅ CORS — allow both local dev and Netlify
 app.use(cors({
   origin: [
     "http://localhost:5173",
@@ -43,39 +42,48 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// ✅ SendGrid via SMTP
-const transporter = nodemailer.createTransport({
-  host: "smtp.sendgrid.net",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "apikey",
-    pass: process.env.SENDGRID_API_KEY
-  }
-});
+// ✅ SendGrid setup
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+console.log("SendGrid Key loaded:", process.env.SENDGRID_API_KEY ? "YES" : "NO");
+console.log("SendGrid Email:", process.env.SENDGRID_EMAIL);
 
 // ✅ Register
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const existing = await CustomerModel.findOne({ email });
-    if (existing) return res.json({ success: false, message: "Email already exists" });
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: "All fields required" });
+    }
 
-    const user = new CustomerModel({ name, email, password });
-    await user.save();
+    let user = await CustomerModel.findOne({ email });
+
+    if (user && user.isVerified) {
+      return res.json({ success: false, message: "Email already exists. Please login." });
+    }
+
+    if (!user) {
+      user = new CustomerModel({ name, email, password });
+      await user.save();
+      console.log("New user created:", email);
+    }
 
     res.json({ success: true, message: "Registered successfully" });
+
   } catch (err) {
     console.error("Register error:", err.message);
-    res.status(500).json({ success: false, message: "Registration failed" });
+    if (err.code === 11000) {
+      return res.json({ success: false, message: "Email already exists. Please login." });
+    }
+    res.status(500).json({ success: false, message: "Registration failed: " + err.message });
   }
 });
 
-// ✅ Send OTP
+// ✅ Send OTP via SendGrid
 app.post("/sendVerifyOtp", async (req, res) => {
   try {
     const { email } = req.body;
+    console.log("sendVerifyOtp called for:", email);
 
     if (!email) {
       return res.status(400).json({ success: false, message: "Email required" });
@@ -86,35 +94,47 @@ app.post("/sendVerifyOtp", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found. Please register first." });
     }
 
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("Generated OTP:", otp);
+    console.log("OTP generated:", otp);
 
+    // Save OTP to DB
     user.otp = otp;
     await user.save();
+    console.log("OTP saved to DB");
 
-    await transporter.sendMail({
-      from: process.env.SENDGRID_EMAIL,
+    // Send via SendGrid
+    const msg = {
       to: email,
-      subject: "OTP Verification - FirstCry",
+      from: process.env.SENDGRID_EMAIL,  // must be verified sender
+      subject: "Your OTP - FirstCry Verification",
       html: `
-        <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;padding:30px;border:1px solid #eee;border-radius:10px;">
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;
+                    padding:30px;border:1px solid #eee;border-radius:10px;">
           <h2 style="color:#e91e63;">FirstCry - Email Verification</h2>
           <p>Hello <strong>${user.name}</strong>,</p>
           <p>Your OTP for email verification is:</p>
-          <div style="font-size:36px;font-weight:bold;letter-spacing:10px;color:#e91e63;text-align:center;padding:20px 0;">
+          <div style="font-size:40px;font-weight:bold;letter-spacing:12px;
+                      color:#e91e63;text-align:center;padding:20px 0;">
             ${otp}
           </div>
-          <p style="color:#888;font-size:13px;">Valid for 10 minutes. Do not share with anyone.</p>
+          <p style="color:#888;font-size:13px;">
+            Valid for 10 minutes. Do not share with anyone.
+          </p>
         </div>
       `
-    });
+    };
 
-    console.log("OTP email sent to:", email);
+    await sgMail.send(msg);
+    console.log("✅ OTP email sent to:", email);
+
     res.json({ success: true, message: "OTP sent successfully" });
 
   } catch (err) {
-    console.error("sendVerifyOtp error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    // ✅ This prints the EXACT SendGrid error
+    const errorMsg = err.response?.body?.errors?.[0]?.message || err.message;
+    console.error("❌ SendGrid error:", JSON.stringify(err.response?.body || err.message));
+    res.status(500).json({ success: false, message: errorMsg });
   }
 });
 
@@ -162,28 +182,25 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.get("/test", (req, res) => res.send("Server working!"));
-
+// ✅ Test SendGrid directly
 app.get("/testmail", async (req, res) => {
   try {
-    await transporter.sendMail({
-      from: process.env.SENDGRID_EMAIL,
+    await sgMail.send({
       to: process.env.SENDGRID_EMAIL,
-      subject: "Test Mail",
+      from: process.env.SENDGRID_EMAIL,
+      subject: "SendGrid Test",
       text: "SendGrid is working!"
     });
-    res.json({ success: true });
+    res.json({ success: true, message: "Test email sent!" });
   } catch (err) {
-    res.json({ success: false, error: err.message });
+    const errorMsg = err.response?.body?.errors?.[0]?.message || err.message;
+    console.error("Testmail error:", JSON.stringify(err.response?.body || err.message));
+    res.json({ success: false, error: errorMsg });
   }
 });
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
+app.get("/test", (req, res) => res.send("Server working!"));
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
 const razorpay = new Razorpay({
