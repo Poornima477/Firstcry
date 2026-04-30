@@ -8,50 +8,55 @@ function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false); // ✅ controls OTP field visibility
   const navigate = useNavigate();
 
+  
   const sendVerifyOtp = () => {
-    axios.post("https://firstcry-backend1.onrender.com/sendVerifyOtp", { email })
+    if (!name || !email || !password) {
+      alert("Please fill Name, Email and Password first");
+      return;
+    }
+
+   
+    axios.post("https://firstcry-backend1.onrender.com/register", { name, email, password })
       .then(res => {
         if (res.data.success) {
-          alert("OTP sent to your email!");
-          setOtpSent(true); // ✅ show OTP field after sending
+         
+          axios.post("https://firstcry-backend1.onrender.com/sendVerifyOtp", { email })
+            .then(res2 => {
+              if (res2.data.success) {
+                alert("OTP sent to your email! Please check your inbox.");
+              } else {
+                alert(res2.data.message);
+              }
+            })
+            .catch(err => console.log(err));
         } else {
-          alert(res.data.message);
+          alert(res.data.message); 
         }
       })
       .catch(err => console.log(err));
   };
 
+ 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!otpSent) {
-      // Step 1: Register and send OTP
-      axios.post("https://firstcry-backend1.onrender.com/register", { name, email, password })
-        .then(res => {
-          if (res.data.success) {
-            alert("Registered! Sending OTP to your email...");
-            sendVerifyOtp();
-          } else {
-            alert(res.data.message);
-          }
-        })
-        .catch(err => console.log(err));
-    } else {
-      // Step 2: Verify OTP and redirect to home
-      axios.post("https://firstcry-backend1.onrender.com/verifyOtp", { email, otp })
-        .then(res => {
-          if (res.data.success) {
-            alert("Email verified successfully!");
-            navigate("/"); // ✅ redirect to home
-          } else {
-            alert(res.data.message);
-          }
-        })
-        .catch(err => console.log(err));
+    if (!otp) {
+      alert("Please enter the OTP sent to your email");
+      return;
     }
+
+    axios.post("https://firstcry-backend1.onrender.com/verifyOtp", { email, otp })
+      .then(res => {
+        if (res.data.success) {
+          alert("Registered Successfully!"); 
+          navigate("/");                    
+        } else {
+          alert(res.data.message);           
+        }
+      })
+      .catch(err => console.log(err));
   };
 
   return (
@@ -64,54 +69,64 @@ function Register() {
         />
         <h3 className="title">Register</h3>
 
-        {/* Hide these fields after OTP is sent */}
-        {!otpSent && (
-          <>
-            <div className="form-details">
-              <label>Full Name*</label>
-              <input
-                type="text"
-                placeholder="Full Name*"
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
+      
+        <div className="form-details">
+          <label>Full Name*</label>
+          <input
+            type="text"
+            placeholder="Full Name*"
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
 
-            <div className="form-details">
-              <label>Email Id*</label>
-              <input
-                type="email"
-                placeholder="Email Id*"
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+        <div className="form-details">
+          <label>Email Id*</label>
+          <input
+            type="email"
+            placeholder="Email Id*"
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
 
-            <div className="form-details">
-              <label>Password*</label>
-              <input
-                type="password"
-                placeholder="Password*"
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </>
-        )}
+       
+        <div className="form-details">
+          <label>Password*</label>
+          <input
+            type="password"
+            placeholder="Password*"
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
 
-        {/* Show OTP field only after OTP is sent */}
-        {otpSent && (
-          <div className="form-details">
-            <label>Enter OTP sent to {email}</label>
-            <input
-              type="text"
-              placeholder="Enter OTP"
-              onChange={(e) => setOtp(e.target.value)}
-            />
-          </div>
-        )}
+        
+        <div className="form-details">
+          <button
+            type="button"
+            className="otp-btn"
+            onClick={sendVerifyOtp}
+          >
+            Get OTP
+          </button>
+        </div>
 
-        {/* Button changes label based on state */}
+       
+        <div className="form-details">
+          <label>Enter OTP*</label>
+          <input
+            type="text"
+            placeholder="Enter OTP from email"
+            onChange={(e) => setOtp(e.target.value)}
+          />
+        </div>
+
+    
         <button className="register" type="submit">
-          {otpSent ? "Verify OTP & Continue" : "Register & Send OTP"}
+          Register
         </button>
+
       </div>
     </form>
   );
