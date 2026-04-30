@@ -7,8 +7,6 @@ import { v2 as cloudinary } from "cloudinary";
 import nodemailer from "nodemailer";
 import Razorpay from "razorpay";
 import crypto from "crypto";
-
-
 import CustomerModel from "./models/Customer.js";
 import ProductModel from "./models/Product.js";
 import Cart from "./models/Cart.js";
@@ -19,22 +17,21 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-
+// ✅ Fix CORS - add your actual Netlify URL
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://your-netlify-app-name.netlify.app"
+    "https://firstcry-clone.netlify.app", // ✅ replace with your actual Netlify URL
   ],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
-app.use(express.json());
 
+app.use(express.json());
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Atlas connected"))
   .catch(err => console.log("MongoDB Error ", err));
-
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -48,99 +45,81 @@ const upload = multer({ storage });
 console.log("EMAIL:", process.env.SENDGRID_EMAIL);
 console.log("PASS:", process.env.SENDGRID_API_KEY);
 
-
+// ✅ Fixed transporter with explicit SMTP
 const transporter = nodemailer.createTransport({
-  service: "SendGrid",
+  host: "smtp.sendgrid.net",
+  port: 587,
+  secure: false,
   auth: {
-    user: "apikey", 
+    user: "apikey",
     pass: process.env.SENDGRID_API_KEY
   }
 });
 
+// ✅ Register route
+app.post("/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const existing = await CustomerModel.findOne({ email });
+    if (existing) return res.json({ success: false, message: "Email already exists" });
+    const user = new CustomerModel({ name, email, password });
+    await user.save();
+    res.json({ success: true, message: "Registered" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Registration failed" });
+  }
+});
 
+// ✅ Send OTP route
 app.post("/sendVerifyOtp", async (req, res) => {
   try {
     const { email } = req.body;
-
     console.log("STEP 1: Request received ->", email);
 
-    // ✅ Check email
     if (!email) {
-      console.log("STEP 2: Email missing");
-      return res.status(400).json({
-        success: false,
-        message: "Email required"
-      });
+      return res.status(400).json({ success: false, message: "Email required" });
     }
 
-    // ✅ Find user
     const user = await CustomerModel.findOne({ email });
     console.log("STEP 3: User found ->", user);
 
     if (!user) {
-      console.log("STEP 3 FAILED: User not found");
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
+      return res.status(404).json({ success: false, message: "User not found. Please register first." });
     }
 
-    // ✅ Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
     console.log("STEP 4: OTP generated ->", otp);
 
-    // ✅ Save OTP
     user.otp = otp;
     await user.save();
     console.log("STEP 5: OTP saved to DB");
 
-    // ✅ Send Email
     const info = await transporter.sendMail({
-      from: "poornimasg03@gmail.com", // 🔴 must match your email config
+      from: process.env.SENDGRID_EMAIL, // ✅ use env variable
       to: email,
-      subject: "OTP Verification",
-      text: `Your OTP is ${otp}`
+      subject: "OTP Verification - FirstCry",
+      text: `Your OTP is ${otp}. It is valid for 10 minutes.`
     });
 
-    console.log("STEP 6: Mail sent successfully ->", info.response || info);
+    console.log("STEP 6: Mail sent ->", info.response || info);
 
-    // ✅ Final response
-    res.json({
-      success: true,
-      message: "OTP sent successfully"
-    });
+    res.json({ success: true, message: "OTP sent successfully" });
 
   } catch (err) {
-    console.log("🔥 OTP ERROR FULL:", err);
-    console.log("🔥 ERROR MESSAGE:", err.message);
-
-    res.status(500).json({
-      success: false,
-      error: err.message
-    });
+    console.log("OTP ERROR:", err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-
-app.get("/testmail", async (req, res) => {
-  try {
-    const info = await transporter.sendMail({
-      from: process.env.SENDGRID_EMAIL,
-      to: process.env.SENDGRID_EMAIL,
-      subject: "Test",
-      text: "Working!"
-    });
-    res.json({ success: true });
-  } catch (err) {
-    // This will show the EXACT error
-    res.json({ success: false, error: err.message });
-  }
-});
-
-
+// ✅ Verify OTP route - marks user as verified
 app.post("/verifyOtp", async (req, res) => {
   try {
     const { email, otp } = req.body;
+    console.log("VERIFY: email ->", email, "otp ->", otp);
+
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: "Email and OTP required" });
+    }
 
     const user = await CustomerModel.findOne({ email });
 
@@ -148,22 +127,44 @@ app.post("/verifyOtp", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    if (user.otp == otp) {
-      res.json({ success: true });
+    console.log("DB OTP:", user.otp, "Entered OTP:", otp);
+
+    if (String(user.otp) === String(otp)) {
+      user.isVerified = true; // ✅ mark verified
+      user.otp = null;        // ✅ clear OTP
+      await user.save();
+      res.json({ success: true, message: "OTP verified successfully" });
     } else {
-      res.status(400).json({ success: false, message: "Invalid OTP" });
+      res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
     }
 
   } catch (err) {
-    console.log("VERIFY ERROR:", err);
-    res.status(500).json({ success: false });
+    console.log("VERIFY ERROR:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
+// ✅ Test routes
 app.get("/test", (req, res) => {
   console.log("TEST API HIT");
   res.send("Working");
 });
+
+app.get("/testmail", async (req, res) => {
+  try {
+    await transporter.sendMail({
+      from: process.env.SENDGRID_EMAIL,
+      to: process.env.SENDGRID_EMAIL,
+      subject: "Test",
+      text: "SendGrid Working!"
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,

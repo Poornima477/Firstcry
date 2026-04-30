@@ -1,20 +1,13 @@
-import mongoose  from "mongoose";
+// models/Customer.js
+import mongoose from "mongoose";
 
-const CustomerSchema = new mongoose.Schema({
-  //name: String,
-  //email: String,
-  //password: String
+const customerSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  otp: { type: Number, default: null },           
+  isVerified: { type: Boolean, default: false }  
+});
 
-  name:{type:String, required:true},
-  email:{type:String,required:true, unique:true},
-  password:{type:String,required:true},
-  verifyOtp:{type:String,default:''},
-  verifyOtpExpireAt:{type:Number,default:0},
-  isAccountVErified: {type:Boolean,default:false},
-  resetOtp: {type:String, default:''},
-  resetOtpExpireAt: {type:Number, default:0},
-})
-
-const CustomerModel = mongoose.models.user ||mongoose.model("Customer", CustomerSchema)
-
+const CustomerModel = mongoose.model("Customer", customerSchema);
 export default CustomerModel;
