@@ -17,7 +17,7 @@ function Editorder() {
 
   const getOrder = async () => {
     try {
-      const res = await axios.get("https://firstcry-backend.onrender.com/order/" + id);
+      const res = await axios.get("https://firstcry-backend1.onrender.com/order/" + id);
       setOrderStatus(res.data.orderStatus);
       setPaymentStatus(res.data.paymentStatus);
     } catch (err) {
@@ -27,7 +27,7 @@ function Editorder() {
 
   const updateOrder = async () => {
   try {
-    await axios.put("https://firstcry-backend.onrender.com/order/" + id, {
+    await axios.put("https://firstcry-backend1.onrender.com/order/" + id, {
       orderStatus,
       paymentStatus
     });

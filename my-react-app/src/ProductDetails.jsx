@@ -14,7 +14,7 @@ function ProductDetails() {
   const fetchProduct = async () => {
     try {
 
-      const res = await axios.get(`https://firstcry-backend.onrender.com/product/${id}`);
+      const res = await axios.get(`https://firstcry-backend1.onrender.com/product/${id}`);
       setProduct(res.data);
 
     } catch (error) {
@@ -24,7 +24,7 @@ function ProductDetails() {
 
   const addToCart = async () => {
   try {
-    await axios.post("https://firstcry-backend.onrender.com/cart", {
+    await axios.post("https://firstcry-backend1.onrender.com/cart", {
       name: product.name,
       price: product.price,
       image: product.image,
@@ -48,7 +48,7 @@ function ProductDetails() {
     <div style={{ textAlign: "center", marginTop: "30px" }}>
 
       <img
-        src={`https://firstcry-backend.onrender.com/public/images/${product.image}`}
+        src={`https://firstcry-backend1.onrender.com/public/images/${product.image}`}
         width="400"
         alt=""
       />

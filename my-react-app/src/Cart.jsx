@@ -11,7 +11,7 @@ function Cart() {
 
 
   useEffect(() => {
-    axios.get("https://firstcry-backend.onrender.com/cart")
+    axios.get("https://firstcry-backend1.onrender.com/cart")
       .then(res => setCartItems(res.data))
       .catch(err => console.log(err));
   }, []);
@@ -19,14 +19,14 @@ function Cart() {
   
   const updateCart = async (item) => {
     try {
-      await axios.post("https://firstcry-backend.onrender.com/cart", {
+      await axios.post("https://firstcry-backend1.onrender.com/cart", {
         name: item.name,
         price: item.price,
         image: item.image
       });
 
 
-      const res = await axios.get("https://firstcry-backend.onrender.com/cart");
+      const res = await axios.get("https://firstcry-backend1.onrender.com/cart");
       setCartItems(res.data);
 
     } catch (err) {
@@ -38,7 +38,7 @@ const increaseQty = async (index) => {
   const updated = [...cartItems];
   updated[index].quantity += 1;
 
-  await axios.put(`https://firstcry-backend.onrender.com/cart/${updated[index]._id}`, {
+  await axios.put(`https://firstcry-backend1.onrender.com/cart/${updated[index]._id}`, {
     quantity: updated[index].quantity
   });
 
@@ -51,22 +51,22 @@ const increaseQty = async (index) => {
     if (updated[index].quantity > 1) {
       updated[index].quantity -= 1;
 
-      await axios.put(`https://firstcry-backend.onrender.com/cart/${updated[index]._id}`, {
+      await axios.put(`https://firstcry-backend1.onrender.com/cart/${updated[index]._id}`, {
         quantity: updated[index].quantity
       });
 
     } else {
-      await axios.delete(`https://firstcry-backend.onrender.com/cart/${updated[index]._id}`);
+      await axios.delete(`https://firstcry-backend1.onrender.com/cart/${updated[index]._id}`);
     }
 
-    const res = await axios.get("https://firstcry-backend.onrender.com/cart");
+    const res = await axios.get("https://firstcry-backend1.onrender.com/cart");
     setCartItems(res.data);
   };
 
   const removeItem = async (index) => {
-    await axios.delete(`https://firstcry-backend.onrender.com/cart/${cartItems[index]._id}`);
+    await axios.delete(`https://firstcry-backend1.onrender.com/cart/${cartItems[index]._id}`);
 
-    const res = await axios.get("https://firstcry-backend.onrender.com/cart");
+    const res = await axios.get("https://firstcry-backend1.onrender.com/cart");
     setCartItems(res.data);
   };
 
@@ -96,7 +96,7 @@ const increaseQty = async (index) => {
 
       <div className="cart-card" key={index}>
 
-        <img className="image" src={`https://firstcry-backend.onrender.com/public/images/${item.image}`}
+        <img className="image" src={`https://firstcry-backend1.onrender.com/public/images/${item.image}`}
                   />
 
       <div className="cart-details">

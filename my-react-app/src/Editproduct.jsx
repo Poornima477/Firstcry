@@ -14,7 +14,7 @@ const { id } = useParams();
 
   
 useEffect(()=>{
-  fetch(`https://firstcry-backend.onrender.com/product/${id}`)
+  fetch(`https://firstcry-backend1.onrender.com/product/${id}`)
   .then((res)=> res.json())
   .then((data) => {
     setCategory(data.category);
@@ -28,7 +28,7 @@ useEffect(()=>{
 }, [id]);
 
 const updateProduct = () => {
-fetch(`https://firstcry-backend.onrender.com/updateproduct/${id}`, {
+fetch(`https://firstcry-backend1.onrender.com/updateproduct/${id}`, {
 
 method: "PUT",
 headers: {

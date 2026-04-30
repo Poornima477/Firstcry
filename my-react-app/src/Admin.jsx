@@ -12,7 +12,7 @@ function Admin() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    axios.post("http://localhost:3001/login", {
+    axios.post("https://firstcry-backend1.onrender.com/login", {
       email,
       password
     })

@@ -23,7 +23,7 @@ function Search() {
     return;
   }
 
-  axios.get(`https://firstcry-backend.onrender.com/search?q=${query}`)
+  axios.get(`https://firstcry-backend1.onrender.com/search?q=${query}`)
     .then(res => setProducts(res.data))
     .catch(err => console.log(err));
 }, [query]);
@@ -81,7 +81,7 @@ function Search() {
   {products.map((p) => (
     <div className="product-card" key={p._id}>
       <img
-        src={`https://firstcry-backend.onrender.com/public/images/${p.image}`}
+        src={`https://firstcry-backend1.onrender.com/public/images/${p.image}`}
         alt={p.name}
       />
       <h4>{p.name}</h4>

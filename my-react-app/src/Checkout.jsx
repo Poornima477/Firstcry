@@ -32,7 +32,7 @@ const cart = location.state?.cartItems || [];
 
     try {
       
- const res = await axios.post("https://firstcry-backend.onrender.com/place-order", {
+ const res = await axios.post("https://firstcry-backend1.onrender.com/place-order", {
   fullName,
   phone,
   email,

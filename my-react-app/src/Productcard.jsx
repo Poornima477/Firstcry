@@ -9,7 +9,7 @@ function Productcard(){
   const [products, setProducts] = useState([]);
 
   useEffect(()=>{
-    axios.get("https://firstcry-backend.onrender.com/product")
+    axios.get("https://firstcry-backend1.onrender.com/product")
     .then(res=>{
       setProducts(res.data);
     })
@@ -43,7 +43,7 @@ function Productcard(){
 
       <div className="row" key={product._id}>
 
-      <img src={`https://firstcry-backend.onrender.com/public/images/${product.image}`} alt={product.name}
+      <img src={`https://firstcry-backend1.onrender.com/public/images/${product.image}`} alt={product.name}
       onClick={() => navigate(`/product/${product._id}`)}
          style={{ cursor: "pointer" }}
             />

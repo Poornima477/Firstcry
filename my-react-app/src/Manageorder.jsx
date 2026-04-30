@@ -9,7 +9,7 @@ const [editData, setEditData] = useState({});
 const navigate = useNavigate();
 
 const fetchOrders = () => {
-axios.get("https://firstcry-backend.onrender.com/order")
+axios.get("https://firstcry-backend1.onrender.com/order")
 .then(res => setOrders(res.data))
 .catch(err => console.log(err));
 };
@@ -33,7 +33,7 @@ setEditData({
 
 
 const handleUpdate = () => {
-axios.put(`https://firstcry-backend.onrender.com/order/${editId}`, editData)
+axios.put(`https://firstcry-backend1.onrender.com/order/${editId}`, editData)
 .then(() => {
 setEditId(null);
 fetchOrders();
@@ -42,7 +42,7 @@ fetchOrders();
 };
 
 const deleteOrder = (id) => {
-axios.delete(`https://firstcry-backend.onrender.com/order/${id}`)
+axios.delete(`https://firstcry-backend1.onrender.com/order/${id}`)
 .then(() => fetchOrders())
 .catch(err => console.log(err));
 };

@@ -55,7 +55,7 @@ const handlePayment = async () => {
 
     if (method === "cod") {
 
-      await axios.put(`https://firstcry-backend.onrender.com/update-payment/${orderId}`, {
+      await axios.put(`https://firstcry-backend1.onrender.com/update-payment/${orderId}`, {
         paymentMethod: "cod",
         status: "pending"
       });
@@ -70,7 +70,7 @@ const handlePayment = async () => {
       }
 
       const res = await axios.post(
-        "https://firstcry-backend.onrender.com/create-razorpay-order",
+        "https://firstcry-backend1.onrender.com/create-razorpay-order",
         { amount: total }
       );
 
@@ -92,7 +92,7 @@ const handlePayment = async () => {
       handler: async function (response) {
       try {
      const verifyRes = await axios.post(
-      "https://firstcry-backend.onrender.com/verify-payment",
+      "https://firstcry-backend1.onrender.com/verify-payment",
         {
           razorpay_order_id: response.razorpay_order_id,
           razorpay_payment_id: response.razorpay_payment_id,

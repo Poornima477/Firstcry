@@ -9,7 +9,7 @@ function Orders() {
 useEffect(() => {
 
   const fetchOrders = () => {
-    axios.get(`https://ecommerce-backend-tc76.onrender.com/my-orders/${userEmail}`)
+    axios.get(`https://ecommerce-backend1-tc76.onrender.com/my-orders/${userEmail}`)
       .then(res => {
         const filtered = res.data.filter(
           (order) => order.email === userEmail
@@ -19,7 +19,7 @@ useEffect(() => {
       .catch(err => console.log(err));
   };
 
-  fetchOrders(); // first load
+  fetchOrders(); 
 
   const interval = setInterval(fetchOrders, 3000); 
 

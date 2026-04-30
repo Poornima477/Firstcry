@@ -10,7 +10,7 @@ function Manageproducts (){
 const [products, setProducts] = useState([]);
 
 useEffect(() => {
- axios.get("https://firstcry-backend.onrender.com/product")
+ axios.get("https://firstcry-backend1.onrender.com/product")
  .then(res => {
    console.log(res.data);
    setProducts(res.data);
@@ -19,7 +19,7 @@ useEffect(() => {
 }, []);
 
 const deleteProduct = (id) => {
-  axios.delete(`https://firstcry-backend.onrender.com/delete-product/${id}`)
+  axios.delete(`https://firstcry-backend1.onrender.com/delete-product/${id}`)
 .then (() => {
   alert ("product deleted");
   setProducts(products.filter(product => product._id !== id));
@@ -48,7 +48,7 @@ return(
       <td>{product.category}</td>
       <td>{product.name}</td>
       <td>
-    <img src={`https://firstcry-backend.onrender.com/public/images/${product.image}`} width="80" />
+    <img src={`https://firstcry-backend1.onrender.com/public/images/${product.image}`} width="80" />
     </td>
       <td>{product.description}</td>
       <td>{product.price}</td>
