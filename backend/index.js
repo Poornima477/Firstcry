@@ -26,8 +26,37 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
-
 app.use(express.json());
+
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.sendgrid.net",
+  port: 587,
+  secure: false,
+  auth: {
+    user: "apikey",
+    pass: process.env.SENDGRID_API_KEY
+  }
+});
+
+
+app.get("/test-email", async (req, res) => {
+  try {
+    await transporter.sendMail({
+      from: process.env.SENDGRID_EMAIL,
+      to: process.env.SENDGRID_EMAIL,
+      subject: "Test",
+      text: "SendGrid is working!"
+    });
+    res.json({ success: true, message: "Email sent!" });
+  } catch (err) {
+    console.error("TEST EMAIL ERROR:", err.message);
+    console.error("DETAILS:", JSON.stringify(err?.response?.body, null, 2));
+    res.json({ success: false, error: err.message, details: err?.response?.body });
+  }
+});
+
+
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Atlas connected"))
@@ -42,20 +71,7 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// ✅ SendGrid SMTP
-const transporter = nodemailer.createTransport({
-  host: "smtp.sendgrid.net",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "apikey",
-    pass: process.env.SENDGRID_API_KEY
-  }
-});
 
-// ===============================
-// ✅ REGISTER
-// ===============================
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -66,12 +82,12 @@ app.post("/register", async (req, res) => {
 
     let user = await CustomerModel.findOne({ email });
 
-    // If user exists and already verified → ask to login
+   
     if (user && user.isVerified) {
       return res.json({ success: false, message: "Email already registered. Please login." });
     }
 
-    // If user exists but not verified → allow re-registration
+   
     if (!user) {
       user = new CustomerModel({ name, email, password });
       await user.save();
@@ -89,9 +105,6 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// ===============================
-// ✅ SEND OTP
-// ===============================
 app.post("/sendVerifyOtp", async (req, res) => {
   try {
     const { email } = req.body;
@@ -142,9 +155,6 @@ app.post("/sendVerifyOtp", async (req, res) => {
   }
 });
 
-// ===============================
-// ✅ VERIFY OTP
-// ===============================
 app.post("/verifyOtp", async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -175,9 +185,6 @@ app.post("/verifyOtp", async (req, res) => {
   }
 });
 
-// ===============================
-// ✅ LOGIN  (only one — duplicate removed)
-// ===============================
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -354,6 +361,42 @@ app.delete("/delete-user/:id", async (req, res) => {
     res.json({ success: true, message: "User deleted" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Delete failed" });
+  }
+});
+
+app.get("/admin/recent-orders", async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .sort({ orderDate: -1 })
+      .limit(50);
+
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching recent orders" });
+  }
+});
+
+
+app.get("/admin/stats", async (req, res) => {
+  try {
+    const products = await Product.find();
+    const orders = await Order.find();
+    const users = await UserModel.find();   
+
+    console.log("Products:", products.length);
+    console.log("Orders:", orders.length);
+    console.log("Users:", users.length);
+
+    res.json({
+      totalProducts: products.length,
+      totalOrders: orders.length,
+      totalUsers: users.length,
+      totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0)
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
   }
 });
 

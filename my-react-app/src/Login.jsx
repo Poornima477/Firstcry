@@ -19,10 +19,10 @@ function Login() {
       console.log("Login response:", res.data);
 
       if (res.data.success) {
-        alert("✅ Login Successful! Welcome back.");
+        alert("Login Successful! Welcome back.");
         navigate("/");
       } else {
-        alert("❌ " + res.data.message);
+        alert(" " + res.data.message);
       }
     } catch (err) {
       console.error("Login error:", err.response?.data || err.message);
@@ -60,7 +60,7 @@ function Login() {
           </button>
 
           <p className="register-text">
-            New to FirstCry?{" "}<Link to="/signup">Register Here</Link>
+            New to FirstCry?{" "}<Link to="/register">Register Here</Link>
           </p>
 
           <div className="divider">
