@@ -4,7 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
@@ -28,27 +28,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
-app.get("/test-email", async (req, res) => {
-  try {
-    await transporter.sendMail({
-      from: process.env.SENDGRID_EMAIL,
-      to: process.env.SENDGRID_EMAIL,
-      subject: "Test",
-      text: "SendGrid is working!"
-    });
-    res.json({ success: true, message: "Email sent!" });
-  } catch (err) {
-    console.error("TEST EMAIL ERROR:", err.message);
-    console.error("DETAILS:", JSON.stringify(err?.response?.body, null, 2));
-    res.json({ success: false, error: err.message, details: err?.response?.body });
-  }
-});
 
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Atlas connected"))
   .catch(err => console.log("MongoDB Error:", err));
+
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -60,15 +47,28 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.sendgrid.net",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "apikey",
-    pass: process.env.SENDGRID_API_KEY
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
+});
+
+
+app.get("/test-email", async (req, res) => {
+  try {
+    await sgMail.send({
+      from: process.env.SENDGRID_EMAIL,
+      to: process.env.SENDGRID_EMAIL,
+      subject: "Test - SendGrid HTTP API",
+      text: "SendGrid HTTP API is working!"
+    });
+    res.json({ success: true, message: "Email sent!" });
+  } catch (err) {
+    console.error("TEST EMAIL ERROR:", err.message);
+    console.error("DETAILS:", JSON.stringify(err?.response?.body, null, 2));
+    res.json({ success: false, error: err.message, details: err?.response?.body });
   }
 });
+
 
 app.post("/register", async (req, res) => {
   try {
@@ -80,12 +80,10 @@ app.post("/register", async (req, res) => {
 
     let user = await CustomerModel.findOne({ email });
 
-   
     if (user && user.isVerified) {
       return res.json({ success: false, message: "Email already registered. Please login." });
     }
 
-   
     if (!user) {
       user = new CustomerModel({ name, email, password });
       await user.save();
@@ -123,7 +121,9 @@ app.post("/sendVerifyOtp", async (req, res) => {
     await user.save();
     console.log("OTP saved to DB");
 
-    await transporter.sendMail({
+    console.log("Sending email via SendGrid HTTP to:", email);
+
+    await sgMail.send({
       from: process.env.SENDGRID_EMAIL,
       to: email,
       subject: "OTP Verification - FirstCry",
@@ -144,14 +144,16 @@ app.post("/sendVerifyOtp", async (req, res) => {
       `
     });
 
-    console.log("OTP email sent to:", email);
+    console.log("OTP email sent successfully to:", email);
     res.json({ success: true, message: "OTP sent successfully" });
 
   } catch (err) {
     console.error("sendVerifyOtp error:", err.message);
+    console.error("SendGrid details:", JSON.stringify(err?.response?.body, null, 2));
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 
 app.post("/verifyOtp", async (req, res) => {
   try {
@@ -183,6 +185,7 @@ app.post("/verifyOtp", async (req, res) => {
   }
 });
 
+
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -213,19 +216,12 @@ app.post("/login", async (req, res) => {
 });
 
 
-
 app.post("/add-product", upload.single("image"), async (req, res) => {
   try {
-
-    console.log("Cloud:", process.env.CLOUDINARY_CLOUD_NAME);
-console.log("Key:", process.env.CLOUDINARY_API_KEY);
-console.log("FILE:", req.file);
-   
     if (!req.file) {
       return res.status(400).json({ message: "Image is required" });
     }
 
-    
     const result = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         { resource_type: "image" },
@@ -246,14 +242,14 @@ console.log("FILE:", req.file);
     });
 
     await product.save();
-
     res.json({ message: "Product Added Successfully", product });
 
   } catch (err) {
-    console.log("ERROR:", err); 
+    console.log("ERROR:", err);
     res.status(500).json({ message: "Error adding product" });
   }
 });
+
 
 app.get("/product", async (req, res) => {
   const data = await ProductModel.find();
@@ -269,18 +265,14 @@ app.delete("/delete-product/:id", async (req, res) => {
 
 app.post("/cart", async (req, res) => {
   const { name, price, image } = req.body;
-
   const existing = await Cart.findOne({ name });
-
   if (existing) {
     existing.quantity += 1;
     await existing.save();
     return res.json(existing);
   }
-
   const item = new Cart({ name, price, image, quantity: 1 });
   await item.save();
-
   res.json(item);
 });
 
@@ -300,90 +292,45 @@ app.get("/order", async (req, res) => {
 });
 
 
-
 app.post("/create-razorpay-order", async (req, res) => {
   const order = await razorpay.orders.create({
     amount: req.body.amount * 100,
     currency: "INR"
   });
-
   res.json(order);
 });
 
 app.post("/verify-payment", async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
-
   const sign = razorpay_order_id + "|" + razorpay_payment_id;
-
   const expected = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
     .update(sign)
     .digest("hex");
 
   if (expected === razorpay_signature) {
-    await Order.findByIdAndUpdate(orderId, {
-      paymentStatus: "Paid"
-    });
+    await Order.findByIdAndUpdate(orderId, { paymentStatus: "Paid" });
     res.json({ success: true });
   } else {
     res.json({ success: false });
   }
 });
 
-app.get("/users", async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json({ success: true, users });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Error fetching users" });
-  }
-});
-
-app.put("/update-user/:id", async (req, res) => {
-  try {
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-
-    res.json({ success: true, updatedUser });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Update failed" });
-  }
-});
-
-app.delete("/delete-user/:id", async (req, res) => {
-  try {
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "User deleted" });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Delete failed" });
-  }
-});
 
 app.get("/admin/recent-orders", async (req, res) => {
   try {
-    const orders = await Order.find()
-      .sort({ orderDate: -1 })
-      .limit(50);
-
+    const orders = await Order.find().sort({ orderDate: -1 }).limit(50);
     res.json(orders);
   } catch (err) {
     res.status(500).json({ message: "Error fetching recent orders" });
   }
 });
 
-
 app.get("/admin/stats", async (req, res) => {
   try {
-    const products = await Product.find();
+    const products = await ProductModel.find();
     const orders = await Order.find();
-    const users = await UserModel.find();   
-
-    console.log("Products:", products.length);
-    console.log("Orders:", orders.length);
-    console.log("Users:", users.length);
+    const users = await CustomerModel.find();
 
     res.json({
       totalProducts: products.length,
@@ -391,15 +338,15 @@ app.get("/admin/stats", async (req, res) => {
       totalUsers: users.length,
       totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0)
     });
-
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });
   }
 });
 
+
 app.get("/", (req, res) => {
-  res.send("Backend Running ");
+  res.send("Backend Running");
 });
 
 app.listen(PORT, () => {
