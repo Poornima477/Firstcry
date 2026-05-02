@@ -7,6 +7,7 @@ import { v2 as cloudinary } from "cloudinary";
 import sgMail from "@sendgrid/mail";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import PDFDocument from "pdfkit";
 
 import CustomerModel from "./models/Customer.js";
 import ProductModel from "./models/Product.js";
@@ -341,6 +342,110 @@ app.get("/admin/stats", async (req, res) => {
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/generate-invoice/:orderId", async (req, res) => {
+  try {
+    const order = await OrderModel.findById(req.params.orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const doc = new PDFDocument({ margin: 50 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=invoice-${order._id}.pdf`
+    );
+
+    doc.pipe(res);
+
+    const gstRate = 0.18;
+    const baseAmount = order.total / (1 + gstRate);
+    const gstAmount = order.total - baseAmount;
+    const cgst = gstAmount / 2;
+    const sgst = gstAmount / 2;
+
+    // Header
+    doc.fontSize(22).fillColor("#e91e63").text("FirstCry", 50, 50)
+      .fontSize(10).fillColor("#555")
+      .text("www.firstcry.com", 50, 78)
+      .text("GSTIN: 27AAAAA0000A1Z5", 50, 90)
+      .text("support@firstcry.com | +91-9999999999", 50, 102);
+
+    doc.fontSize(18).fillColor("#000").text("TAX INVOICE", 400, 50, { align: "right" })
+      .fontSize(10).fillColor("#555")
+      .text(`Invoice No: INV-${order._id.toString().slice(-6).toUpperCase()}`, 400, 78, { align: "right" })
+      .text(`Date: ${new Date(order.createdAt).toLocaleDateString("en-IN")}`, 400, 90, { align: "right" })
+      .text(`Order ID: ${order._id}`, 400, 102, { align: "right" });
+
+    doc.moveTo(50, 125).lineTo(550, 125).strokeColor("#e91e63").lineWidth(2).stroke();
+
+    // Bill To
+    doc.fontSize(11).fillColor("#000").text("Bill To:", 50, 140)
+      .fontSize(10).fillColor("#333")
+      .text(order.fullName, 50, 155)
+      .text(order.phone, 50, 168)
+      .text(order.email, 50, 181)
+      .text(`${order.address}, ${order.city}`, 50, 194)
+      .text(`${order.state} - ${order.pincode}`, 50, 207);
+
+    doc.fontSize(11).fillColor("#000").text("Payment Info:", 350, 140)
+      .fontSize(10).fillColor("#333")
+      .text(`Method: ${order.payment}`, 350, 155)
+      .text(`Status: ${order.paymentStatus}`, 350, 168)
+      .text(`Order Status: ${order.orderStatus}`, 350, 181);
+
+    // Table Header
+    doc.rect(50, 235, 500, 20).fill("#e91e63");
+    doc.fillColor("#fff")
+      .text("Item", 55, 240)
+      .text("Qty", 320, 240)
+      .text("Unit Price", 370, 240)
+      .text("Amount", 470, 240);
+
+    // Table Rows
+    let y = 265;
+    order.items.forEach((item, i) => {
+      const rowColor = i % 2 === 0 ? "#fff" : "#fce4ec";
+      doc.rect(50, y - 5, 500, 20).fill(rowColor);
+      doc.fillColor("#333")
+        .text(item.name, 55, y, { width: 260 })
+        .text(item.quantity.toString(), 320, y)
+        .text(`Rs. ${item.price.toFixed(2)}`, 370, y)
+        .text(`Rs. ${(item.price * item.quantity).toFixed(2)}`, 470, y);
+      y += 25;
+    });
+
+    // Totals
+    y += 15;
+    doc.fillColor("#333")
+      .text("Subtotal (excl. GST):", 350, y)
+      .text(`Rs. ${baseAmount.toFixed(2)}`, 470, y);
+    y += 18;
+    doc.text("CGST (9%):", 350, y).text(`Rs. ${cgst.toFixed(2)}`, 470, y);
+    y += 18;
+    doc.text("SGST (9%):", 350, y).text(`Rs. ${sgst.toFixed(2)}`, 470, y);
+    y += 18;
+    doc.rect(340, y - 3, 210, 22).fill("#e91e63");
+    doc.fontSize(11).fillColor("#fff")
+      .text("Total (incl. GST):", 350, y + 2)
+      .text(`Rs. ${order.total.toFixed(2)}`, 470, y + 2);
+
+    // Footer
+    y += 50;
+    doc.moveTo(50, y).lineTo(550, y).strokeColor("#e91e63").lineWidth(1).stroke();
+    doc.fontSize(9).fillColor("#888")
+      .text("Thank you for shopping with FirstCry!", 50, y + 10, { align: "center", width: 500 })
+      .text("This is a computer-generated invoice.", 50, y + 22, { align: "center", width: 500 });
+
+    doc.end();
+
+  } catch (err) {
+    console.error("Invoice error:", err.message);
+    res.status(500).json({ message: "Failed to generate invoice" });
   }
 });
 
