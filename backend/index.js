@@ -29,16 +29,15 @@ app.use(cors({
 app.use(express.json());
 
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.sendgrid.net",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "apikey",
-    pass: process.env.SENDGRID_API_KEY
-  }
-});
+const sgMail = require("@sendgrid/mail");
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
+await sgMail.send({
+  from: process.env.SENDGRID_EMAIL,
+  to: email,
+  subject: "OTP Verification - FirstCry",
+  html: `...`
+});
 
 app.get("/test-email", async (req, res) => {
   try {
