@@ -257,6 +257,66 @@ app.get("/product", async (req, res) => {
   res.json(data);
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /product/:id  (needed by EditProduct to fetch a single product)
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/product/:id", async (req, res) => {
+  try {
+    const product = await ProductModel.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Not found" });
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching product" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /updateproduct/:id
+// Supports two cases:
+//   1. User picked a new image  → multipart/form-data  → re-upload to Cloudinary
+//   2. No new image             → application/json     → keep existing image URL
+// ─────────────────────────────────────────────────────────────────────────────
+app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
+  try {
+    const updateData = {
+      name: req.body.name,
+      category: req.body.category,
+      description: req.body.description,
+      price: req.body.price,
+      quantity: req.body.quantity,
+    };
+
+    // Only upload a new image if one was sent
+    if (req.file) {
+      const result = await new Promise((resolve, reject) => {
+        cloudinary.uploader
+          .upload_stream({ resource_type: "image" }, (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          })
+          .end(req.file.buffer);
+      });
+      updateData.image = result.secure_url; // overwrite with new Cloudinary URL
+    }
+    // If no req.file → image field is NOT included → MongoDB keeps the old value
+
+    const updated = await ProductModel.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true } // return the updated document
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    res.json({ message: "Product Updated Successfully", product: updated });
+  } catch (err) {
+    console.error("Update error:", err);
+    res.status(500).json({ message: "Error updating product" });
+  }
+});
+
 
 app.delete("/delete-product/:id", async (req, res) => {
   await ProductModel.findByIdAndDelete(req.params.id);
@@ -347,7 +407,7 @@ app.get("/admin/stats", async (req, res) => {
 
 app.get("/generate-invoice/:orderId", async (req, res) => {
   try {
-    const order = await OrderModel.findById(req.params.orderId);
+    const order = await Order.findById(req.params.orderId);
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
