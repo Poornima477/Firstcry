@@ -1,0 +1,285 @@
+
+.userpanel {
+  display: flex;
+  min-height: 100vh;
+  background: #f9f9f9;
+  font-family: Arial, sans-serif;
+}
+
+
+.up-sidebar {
+  width: 260px;
+  background: #fff;
+  border-right: 1px solid #eee;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.up-avatar {
+  text-align: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.up-avatar-circle {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #e91e63;
+  color: #fff;
+  font-size: 30px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+}
+
+.up-name {
+  font-weight: bold;
+  font-size: 16px;
+  margin: 0;
+}
+
+.up-email {
+  font-size: 12px;
+  color: #888;
+  margin: 4px 0 0;
+}
+
+/* ── Menu ── */
+.up-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.up-menu li {
+  padding: 12px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  transition: background 0.2s;
+}
+
+.up-menu li:hover {
+  background: #fce4ec;
+  color: #e91e63;
+}
+
+.up-menu li.active {
+  background: #e91e63;
+  color: #fff;
+  font-weight: bold;
+}
+
+.up-logout {
+  margin-top: auto;
+  color: #e91e63 !important;
+  border: 1px solid #e91e63;
+}
+
+.up-logout:hover {
+  background: #e91e63 !important;
+  color: #fff !important;
+}
+
+/* ── Content ── */
+.up-content {
+  flex: 1;
+  padding: 30px;
+}
+
+.up-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+
+.up-card h2 {
+  margin-top: 0;
+  color: #e91e63;
+  border-bottom: 2px solid #fce4ec;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+/* ── Form ── */
+.up-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 500px;
+}
+
+.up-form label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #555;
+}
+
+.up-form input,
+.up-form textarea {
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border 0.2s;
+}
+
+.up-form input:focus,
+.up-form textarea:focus {
+  border-color: #e91e63;
+}
+
+.up-btn {
+  margin-top: 10px;
+  padding: 12px;
+  background: #e91e63;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.up-btn:hover {
+  background: #c2185b;
+}
+
+/* ── Orders ── */
+.up-empty {
+  color: #888;
+  text-align: center;
+  padding: 40px 0;
+}
+
+.up-order-box {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.04);
+}
+
+.up-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 13px;
+  color: #555;
+}
+
+.up-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.up-status.delivered {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.up-status.cancelled {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.up-status.pending {
+  background: #fff8e1;
+  color: #f57f17;
+}
+
+.up-order-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.up-order-item {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  padding: 10px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.up-order-item img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+.up-item-name {
+  font-weight: bold;
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+.up-order-item p {
+  margin: 2px 0;
+  font-size: 13px;
+  color: #555;
+}
+
+.up-order-footer {
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+  font-size: 13px;
+  color: #555;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.up-invoice-btn {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background: #e91e63;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  width: fit-content;
+  transition: background 0.2s;
+}
+
+.up-invoice-btn:hover {
+  background: #c2185b;
+}
+
+
+@media (max-width: 768px) {
+  .userpanel {
+    flex-direction: column;
+  }
+
+  .up-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+
+  .up-menu {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
