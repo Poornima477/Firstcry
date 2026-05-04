@@ -19,19 +19,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ─── CORS FIX (compatible with Express 5 / newer path-to-regexp) ──────────────
-// Do NOT use app.options("*", cors()) — newer Express doesn't support bare "*"
 const corsOptions = {
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 app.use(cors(corsOptions));
-
-// Handle preflight requests using a path pattern instead of "*"
-app.options("/(.*)", cors(corsOptions));
-// ─────────────────────────────────────────────────────────────────────────────
-
 app.use(express.json());
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
