@@ -20,14 +20,11 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://prismatic-kitsune-4101f6.netlify.app"
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true
+  origin: "*",      
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
-app.use(express.json());
+app.options("*", cors());
 
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -376,6 +373,29 @@ app.post("/verify-payment", async (req, res) => {
     res.json({ success: false });
   }
 });
+
+app.put("/update-payment/:id", async (req, res) => {
+  try {
+    const updated = await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        payment: req.body.paymentMethod,
+        paymentStatus: req.body.status
+      },
+      { new: true }
+    );
+ 
+    if (!updated) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+ 
+    res.json({ success: true, order: updated });
+  } catch (err) {
+    console.error("Update payment error:", err);
+    res.status(500).json({ message: "Error updating payment" });
+  }
+});
+ 
 
 
 app.get("/admin/recent-orders", async (req, res) => {
