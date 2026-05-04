@@ -67,6 +67,13 @@ app.get("/test-email", async (req, res) => {
   }
 });
 
+app.get("/check-keys", (req, res) => {
+  res.json({
+    key_id: process.env.RAZORPAY_KEY_ID || "❌ MISSING",
+    key_secret: process.env.RAZORPAY_KEY_SECRET ? "✅ Secret exists" : "❌ MISSING"
+  });
+});
+
 
 app.post("/register", async (req, res) => {
   try {
