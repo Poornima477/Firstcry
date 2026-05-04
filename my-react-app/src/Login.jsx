@@ -19,6 +19,10 @@ function Login() {
       console.log("Login response:", res.data);
 
       if (res.data.success) {
+        // ✅ Save user info to localStorage so Navbar and Userpanel can read it
+        localStorage.setItem("email", res.data.user.email);
+        localStorage.setItem("name", res.data.user.name);
+
         alert("Login Successful! Welcome back.");
         navigate("/");
       } else {
