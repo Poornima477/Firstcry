@@ -19,21 +19,26 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({
-  origin: "*",      
+// ─── CORS FIX (compatible with Express 5 / newer path-to-regexp) ──────────────
+// Do NOT use app.options("*", cors()) — newer Express doesn't support bare "*"
+const corsOptions = {
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
-}));
-app.options("*", cors());
+};
+app.use(cors(corsOptions));
 
+// Handle preflight requests using a path pattern instead of "*"
+app.options("/(.*)", cors(corsOptions));
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.use(express.json());
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Atlas connected"))
   .catch(err => console.log("MongoDB Error:", err));
-
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -44,10 +49,18 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET
+});
+
+
+// ── Debug: check env keys (remove after confirming payment works) ─────────────
+app.get("/check-keys", (req, res) => {
+  res.json({
+    key_id: process.env.RAZORPAY_KEY_ID || "❌ MISSING",
+    key_secret: process.env.RAZORPAY_KEY_SECRET ? "✅ Secret exists" : "❌ MISSING"
+  });
 });
 
 
@@ -62,41 +75,26 @@ app.get("/test-email", async (req, res) => {
     res.json({ success: true, message: "Email sent!" });
   } catch (err) {
     console.error("TEST EMAIL ERROR:", err.message);
-    console.error("DETAILS:", JSON.stringify(err?.response?.body, null, 2));
     res.json({ success: false, error: err.message, details: err?.response?.body });
   }
-});
-
-app.get("/check-keys", (req, res) => {
-  res.json({
-    key_id: process.env.RAZORPAY_KEY_ID || "❌ MISSING",
-    key_secret: process.env.RAZORPAY_KEY_SECRET ? "✅ Secret exists" : "❌ MISSING"
-  });
 });
 
 
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
-
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, message: "All fields required" });
     }
-
     let user = await CustomerModel.findOne({ email });
-
     if (user && user.isVerified) {
       return res.json({ success: false, message: "Email already registered. Please login." });
     }
-
     if (!user) {
       user = new CustomerModel({ name, email, password });
       await user.save();
-      console.log("New user created:", email);
     }
-
     res.json({ success: true, message: "Registered successfully" });
-
   } catch (err) {
     console.error("Register error:", err.message);
     if (err.code === 11000) {
@@ -106,27 +104,17 @@ app.post("/register", async (req, res) => {
   }
 });
 
+
 app.post("/sendVerifyOtp", async (req, res) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ success: false, message: "Email required" });
-    }
-
+    if (!email) return res.status(400).json({ success: false, message: "Email required" });
     const user = await CustomerModel.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found. Please register first." });
-    }
+    if (!user) return res.status(404).json({ success: false, message: "User not found. Please register first." });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("Generated OTP:", otp);
-
     user.otp = otp;
     await user.save();
-    console.log("OTP saved to DB");
-
-    console.log("Sending email via SendGrid HTTP to:", email);
 
     await sgMail.send({
       from: process.env.SENDGRID_EMAIL,
@@ -142,19 +130,13 @@ app.post("/sendVerifyOtp", async (req, res) => {
                       color:#e91e63;text-align:center;padding:20px 0;">
             ${otp}
           </div>
-          <p style="color:#888;font-size:13px;">
-            Valid for 10 minutes. Do not share with anyone.
-          </p>
+          <p style="color:#888;font-size:13px;">Valid for 10 minutes. Do not share with anyone.</p>
         </div>
       `
     });
-
-    console.log("OTP email sent successfully to:", email);
     res.json({ success: true, message: "OTP sent successfully" });
-
   } catch (err) {
     console.error("sendVerifyOtp error:", err.message);
-    console.error("SendGrid details:", JSON.stringify(err?.response?.body, null, 2));
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -163,17 +145,9 @@ app.post("/sendVerifyOtp", async (req, res) => {
 app.post("/verifyOtp", async (req, res) => {
   try {
     const { email, otp } = req.body;
-
-    if (!email || !otp) {
-      return res.status(400).json({ success: false, message: "Email and OTP required" });
-    }
-
+    if (!email || !otp) return res.status(400).json({ success: false, message: "Email and OTP required" });
     const user = await CustomerModel.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    console.log("DB OTP:", user.otp, "| Entered:", otp);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     if (String(user.otp) === String(otp.trim())) {
       user.isVerified = true;
@@ -183,7 +157,6 @@ app.post("/verifyOtp", async (req, res) => {
     } else {
       res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
     }
-
   } catch (err) {
     console.error("verifyOtp error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
@@ -194,26 +167,12 @@ app.post("/verifyOtp", async (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Email and password required" });
-    }
-
+    if (!email || !password) return res.status(400).json({ success: false, message: "Email and password required" });
     const user = await CustomerModel.findOne({ email });
-    if (!user) {
-      return res.json({ success: false, message: "No account found. Please register first." });
-    }
-
-    if (!user.isVerified) {
-      return res.json({ success: false, message: "Email not verified. Please complete OTP verification." });
-    }
-
-    if (user.password !== password) {
-      return res.json({ success: false, message: "Wrong password. Please try again." });
-    }
-
+    if (!user) return res.json({ success: false, message: "No account found. Please register first." });
+    if (!user.isVerified) return res.json({ success: false, message: "Email not verified. Please complete OTP verification." });
+    if (user.password !== password) return res.json({ success: false, message: "Wrong password. Please try again." });
     res.json({ success: true, message: "Login successful", user: { name: user.name, email: user.email } });
-
   } catch (err) {
     console.error("Login error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
@@ -221,19 +180,28 @@ app.post("/login", async (req, res) => {
 });
 
 
+app.post("/admin/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
+      return res.json({ success: true, message: "Admin login successful" });
+    }
+    res.json({ success: false, message: "Invalid admin credentials" });
+  } catch (err) {
+    console.error("Admin login error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
 app.post("/add-product", upload.single("image"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "Image is required" });
-    }
+    if (!req.file) return res.status(400).json({ message: "Image is required" });
 
     const result = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         { resource_type: "image" },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
+        (error, result) => { if (error) reject(error); else resolve(result); }
       ).end(req.file.buffer);
     });
 
@@ -245,10 +213,8 @@ app.post("/add-product", upload.single("image"), async (req, res) => {
       quantity: req.body.quantity,
       image: result.secure_url
     });
-
     await product.save();
     res.json({ message: "Product Added Successfully", product });
-
   } catch (err) {
     console.log("ERROR:", err);
     res.status(500).json({ message: "Error adding product" });
@@ -261,9 +227,7 @@ app.get("/product", async (req, res) => {
   res.json(data);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /product/:id  (needed by EditProduct to fetch a single product)
-// ─────────────────────────────────────────────────────────────────────────────
+
 app.get("/product/:id", async (req, res) => {
   try {
     const product = await ProductModel.findById(req.params.id);
@@ -274,12 +238,7 @@ app.get("/product/:id", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUT /updateproduct/:id
-// Supports two cases:
-//   1. User picked a new image  → multipart/form-data  → re-upload to Cloudinary
-//   2. No new image             → application/json     → keep existing image URL
-// ─────────────────────────────────────────────────────────────────────────────
+
 app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
   try {
     const updateData = {
@@ -289,31 +248,17 @@ app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
       price: req.body.price,
       quantity: req.body.quantity,
     };
-
-    // Only upload a new image if one was sent
     if (req.file) {
       const result = await new Promise((resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream({ resource_type: "image" }, (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          })
-          .end(req.file.buffer);
+        cloudinary.uploader.upload_stream(
+          { resource_type: "image" },
+          (error, result) => { if (error) reject(error); else resolve(result); }
+        ).end(req.file.buffer);
       });
-      updateData.image = result.secure_url; // overwrite with new Cloudinary URL
+      updateData.image = result.secure_url;
     }
-    // If no req.file → image field is NOT included → MongoDB keeps the old value
-
-    const updated = await ProductModel.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true } // return the updated document
-    );
-
-    if (!updated) {
-      return res.status(404).json({ message: "Product not found" });
-    }
-
+    const updated = await ProductModel.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!updated) return res.status(404).json({ message: "Product not found" });
     res.json({ message: "Product Updated Successfully", product: updated });
   } catch (err) {
     console.error("Update error:", err);
@@ -345,6 +290,24 @@ app.get("/cart", async (req, res) => {
   res.json(await Cart.find());
 });
 
+app.put("/cart/:id", async (req, res) => {
+  try {
+    const updated = await Cart.findByIdAndUpdate(
+      req.params.id,
+      { quantity: req.body.quantity },
+      { new: true }
+    );
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: "Error updating cart" });
+  }
+});
+
+app.delete("/cart/:id", async (req, res) => {
+  await Cart.findByIdAndDelete(req.params.id);
+  res.json({ message: "Removed from cart" });
+});
+
 
 app.post("/place-order", async (req, res) => {
   const order = new Order(req.body);
@@ -354,6 +317,22 @@ app.post("/place-order", async (req, res) => {
 
 app.get("/order", async (req, res) => {
   res.json(await Order.find());
+});
+
+
+app.put("/update-payment/:id", async (req, res) => {
+  try {
+    const updated = await Order.findByIdAndUpdate(
+      req.params.id,
+      { payment: req.body.paymentMethod, paymentStatus: req.body.status },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Order not found" });
+    res.json({ success: true, order: updated });
+  } catch (err) {
+    console.error("Update payment error:", err);
+    res.status(500).json({ message: "Error updating payment" });
+  }
 });
 
 
@@ -381,29 +360,6 @@ app.post("/verify-payment", async (req, res) => {
   }
 });
 
-app.put("/update-payment/:id", async (req, res) => {
-  try {
-    const updated = await Order.findByIdAndUpdate(
-      req.params.id,
-      {
-        payment: req.body.paymentMethod,
-        paymentStatus: req.body.status
-      },
-      { new: true }
-    );
- 
-    if (!updated) {
-      return res.status(404).json({ message: "Order not found" });
-    }
- 
-    res.json({ success: true, order: updated });
-  } catch (err) {
-    console.error("Update payment error:", err);
-    res.status(500).json({ message: "Error updating payment" });
-  }
-});
- 
-
 
 app.get("/admin/recent-orders", async (req, res) => {
   try {
@@ -419,7 +375,6 @@ app.get("/admin/stats", async (req, res) => {
     const products = await ProductModel.find();
     const orders = await Order.find();
     const users = await CustomerModel.find();
-
     res.json({
       totalProducts: products.length,
       totalOrders: orders.length,
@@ -427,26 +382,19 @@ app.get("/admin/stats", async (req, res) => {
       totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0)
     });
   } catch (err) {
-    console.log(err);
     res.status(500).json({ error: err.message });
   }
 });
 
+
 app.get("/generate-invoice/:orderId", async (req, res) => {
   try {
     const order = await Order.findById(req.params.orderId);
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
-    }
+    if (!order) return res.status(404).json({ message: "Order not found" });
 
     const doc = new PDFDocument({ margin: 50 });
-
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=invoice-${order._id}.pdf`
-    );
-
+    res.setHeader("Content-Disposition", `attachment; filename=invoice-${order._id}.pdf`);
     doc.pipe(res);
 
     const gstRate = 0.18;
@@ -455,22 +403,18 @@ app.get("/generate-invoice/:orderId", async (req, res) => {
     const cgst = gstAmount / 2;
     const sgst = gstAmount / 2;
 
-    // Header
     doc.fontSize(22).fillColor("#e91e63").text("FirstCry", 50, 50)
       .fontSize(10).fillColor("#555")
       .text("www.firstcry.com", 50, 78)
       .text("GSTIN: 27AAAAA0000A1Z5", 50, 90)
       .text("support@firstcry.com | +91-9999999999", 50, 102);
-
     doc.fontSize(18).fillColor("#000").text("TAX INVOICE", 400, 50, { align: "right" })
       .fontSize(10).fillColor("#555")
       .text(`Invoice No: INV-${order._id.toString().slice(-6).toUpperCase()}`, 400, 78, { align: "right" })
       .text(`Date: ${new Date(order.createdAt).toLocaleDateString("en-IN")}`, 400, 90, { align: "right" })
       .text(`Order ID: ${order._id}`, 400, 102, { align: "right" });
-
     doc.moveTo(50, 125).lineTo(550, 125).strokeColor("#e91e63").lineWidth(2).stroke();
 
-    // Bill To
     doc.fontSize(11).fillColor("#000").text("Bill To:", 50, 140)
       .fontSize(10).fillColor("#333")
       .text(order.fullName, 50, 155)
@@ -478,22 +422,16 @@ app.get("/generate-invoice/:orderId", async (req, res) => {
       .text(order.email, 50, 181)
       .text(`${order.address}, ${order.city}`, 50, 194)
       .text(`${order.state} - ${order.pincode}`, 50, 207);
-
     doc.fontSize(11).fillColor("#000").text("Payment Info:", 350, 140)
       .fontSize(10).fillColor("#333")
       .text(`Method: ${order.payment}`, 350, 155)
       .text(`Status: ${order.paymentStatus}`, 350, 168)
       .text(`Order Status: ${order.orderStatus}`, 350, 181);
 
-    // Table Header
     doc.rect(50, 235, 500, 20).fill("#e91e63");
-    doc.fillColor("#fff")
-      .text("Item", 55, 240)
-      .text("Qty", 320, 240)
-      .text("Unit Price", 370, 240)
-      .text("Amount", 470, 240);
+    doc.fillColor("#fff").text("Item", 55, 240).text("Qty", 320, 240)
+      .text("Unit Price", 370, 240).text("Amount", 470, 240);
 
-    // Table Rows
     let y = 265;
     order.items.forEach((item, i) => {
       const rowColor = i % 2 === 0 ? "#fff" : "#fce4ec";
@@ -506,11 +444,8 @@ app.get("/generate-invoice/:orderId", async (req, res) => {
       y += 25;
     });
 
-    // Totals
     y += 15;
-    doc.fillColor("#333")
-      .text("Subtotal (excl. GST):", 350, y)
-      .text(`Rs. ${baseAmount.toFixed(2)}`, 470, y);
+    doc.fillColor("#333").text("Subtotal (excl. GST):", 350, y).text(`Rs. ${baseAmount.toFixed(2)}`, 470, y);
     y += 18;
     doc.text("CGST (9%):", 350, y).text(`Rs. ${cgst.toFixed(2)}`, 470, y);
     y += 18;
@@ -521,15 +456,12 @@ app.get("/generate-invoice/:orderId", async (req, res) => {
       .text("Total (incl. GST):", 350, y + 2)
       .text(`Rs. ${order.total.toFixed(2)}`, 470, y + 2);
 
-    // Footer
     y += 50;
     doc.moveTo(50, y).lineTo(550, y).strokeColor("#e91e63").lineWidth(1).stroke();
     doc.fontSize(9).fillColor("#888")
       .text("Thank you for shopping with FirstCry!", 50, y + 10, { align: "center", width: 500 })
       .text("This is a computer-generated invoice.", 50, y + 22, { align: "center", width: 500 });
-
     doc.end();
-
   } catch (err) {
     console.error("Invoice error:", err.message);
     res.status(500).json({ message: "Failed to generate invoice" });
