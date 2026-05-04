@@ -82,7 +82,7 @@ const handlePayment = async () => {
       }
 
     const options = {
-      key: "rzp_test_SeQQ1WShAwFDER",
+      key: "rzp_test_Sl9YxuH6BbxZEs",
       amount: order.amount,
       currency: "INR",
       order_id: order.id,
