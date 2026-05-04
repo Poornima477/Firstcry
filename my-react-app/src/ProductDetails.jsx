@@ -3,7 +3,6 @@ import axios from "axios";
 import { useParams } from "react-router-dom";
 
 function ProductDetails() {
-
   const { id } = useParams();
   const [product, setProduct] = useState(null);
 
@@ -13,64 +12,52 @@ function ProductDetails() {
 
   const fetchProduct = async () => {
     try {
-
       const res = await axios.get(`https://firstcry-backend1.onrender.com/product/${id}`);
       setProduct(res.data);
-
     } catch (error) {
       console.log(error);
     }
   };
 
   const addToCart = async () => {
-  try {
-    await axios.post("https://firstcry-backend1.onrender.com/cart", {
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      quantity: 1
-    });
+    try {
+      await axios.post("https://firstcry-backend1.onrender.com/cart", {
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        quantity: 1
+      });
+      alert("Added to cart");
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
-    alert("Added to cart");
-  } catch (error) {
-    console.log(error);
-  }
-};
-
- if (product === null) {
+  if (product === null) {
     return <h2>Loading...</h2>;
   }
 
   return (
     <>
-    
-     
-    <div style={{ textAlign: "center", marginTop: "30px" }}>
+      <div style={{ textAlign: "center", marginTop: "30px" }}>
 
-      <img
-        src={`https://firstcry-backend1.onrender.com/public/images/${product.image}`}
-        width="400"
-        alt=""
-      />
+        {/* ✅ FIXED: product.image is already a full Cloudinary URL */}
+        <img
+          src={product.image}
+          width="400"
+          alt={product.name}
+        />
 
-      <h2>{product.name}</h2>
+        <h2>{product.name}</h2>
+        <br />
+        <p>{product.description}</p>
+        <h3>₹ {product.price}</h3>
 
-      <br />
+        <button className="btns" onClick={addToCart}>
+          Add to Cart
+        </button>
 
-      <p>
-        {product.description}</p>
-
-      <h3>₹ {product.price}</h3>
-
-     
-      <button className="btns"
-        onClick={addToCart}
-        
-      >
-        Add to Cart
-      </button>
-
-    </div>
+      </div>
     </>
   );
 }

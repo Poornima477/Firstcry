@@ -3,21 +3,17 @@ import axios from "axios";
 import "./Productcard.css";
 import { useNavigate } from "react-router-dom";
 
-function Productcard(){
+function Productcard() {
   const navigate = useNavigate();
-
   const [products, setProducts] = useState([]);
 
-  useEffect(()=>{
+  useEffect(() => {
     axios.get("https://firstcry-backend1.onrender.com/product")
-    .then(res=>{
-      setProducts(res.data);
-    })
-    .catch(err=>console.log(err));
-  },[]);
+      .then(res => setProducts(res.data))
+      .catch(err => console.log(err));
+  }, []);
 
-  return(
-    
+  return (
     <div className="product_box">
 
       <div className="row">
@@ -38,30 +34,30 @@ function Productcard(){
         <img src="https://cdn.fcglcdn.com/brainbees/images/boutique/670x670/38831.jpg" />
       </div>
 
-  <div className="products">
-     {products.map((product)=>(
+      <div className="products">
+        {products.map((product) => (
+          <div className="row" key={product._id}>
 
-      <div className="row" key={product._id}>
-
-      <img src={`https://firstcry-backend1.onrender.com/public/images/${product.image}`} alt={product.name}
-      onClick={() => navigate(`/product/${product._id}`)}
-         style={{ cursor: "pointer" }}
+            {/* ✅ FIXED: product.image is already a full Cloudinary URL */}
+            <img
+              src={product.image}
+              alt={product.name}
+              onClick={() => navigate(`/product/${product._id}`)}
+              style={{ cursor: "pointer" }}
             />
-      <div>
-        <h3>{product.name}</h3>
-          <p>{product.description}</p>
-          <p>₹ {product.price}</p>
 
-        </div>
-           
-        </div>
+            <div>
+              <h3>{product.name}</h3>
+              <p>{product.description}</p>
+              <p>₹ {product.price}</p>
+            </div>
 
+          </div>
         ))}
-
       </div>
 
     </div>
-  )
+  );
 }
 
 export default Productcard;
