@@ -1,0 +1,118 @@
+/* Overall page */
+.userpanel {
+  background-color: #f0eef8;
+  min-height: 100vh;
+  padding: 30px 20px;
+  font-family: sans-serif;
+}
+ 
+/* Profile Card */
+.profile-card {
+  background-color: white;
+  border-radius: 10px;
+  padding: 25px 30px;
+  text-align: center;
+  max-width: 400px;
+  margin: 0 auto 30px auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+ 
+.profile-card h2 {
+  font-size: 22px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10px;
+}
+ 
+.profile-card p {
+  font-size: 14px;
+  color: #444;
+  margin-bottom: 6px;
+}
+ 
+.logout-btn {
+  background-color: #6a0dad;
+  color: white;
+  border: none;
+  padding: 8px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 10px;
+}
+ 
+.logout-btn:hover {
+  background-color: #530da8;
+}
+ 
+/* Order History Section */
+.order-section {
+  max-width: 900px;
+  margin: 0 auto;
+}
+ 
+.order-section h2 {
+  font-size: 22px;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  margin-bottom: 16px;
+}
+ 
+.loading-text,
+.empty-text {
+  text-align: center;
+  color: #888;
+  font-size: 14px;
+}
+ 
+/* Table */
+.order-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+ 
+.order-table thead tr {
+  background-color: #6a0dad;
+  color: white;
+}
+ 
+.order-table th {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+ 
+.order-table td {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+}
+ 
+.order-table tbody tr:hover {
+  background-color: #fafafa;
+}
+ 
+/* Status colors — matching screenshot */
+.status-delivered {
+  color: #2e7d32;
+  font-weight: 600;
+}
+ 
+.status-pending {
+  color: #f57c00;
+  font-weight: 600;
+}
+ 
+.status-cancelled {
+  color: #c62828;
+  font-weight: 600;
+}
+ 

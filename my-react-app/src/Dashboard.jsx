@@ -1,218 +1,166 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./Dashboard.css";
 
-const BASE = "https://firstcry-backend1.onrender.com";
-
-function PieChart({ orders }) {
-  const delivered = orders.filter(o => o.orderStatus === "Delivered").length;
-  const placed = orders.filter(o => o.orderStatus === "Placed").length;
-  const cancelled = orders.filter(o => o.orderStatus === "Cancelled").length;
-  const total = delivered + placed + cancelled || 1;
-  const segments = [
-    { label: "Delivered", val: delivered, color: "#1D9E75" },
-    { label: "Placed", val: placed, color: "#EF9F27" },
-    { label: "Cancelled", val: cancelled, color: "#E24B4A" },
-  ];
-  let angle = -Math.PI / 2;
-  const paths = segments
-    .filter(s => s.val > 0)
-    .map(s => {
-      const sweep = (s.val / total) * 2 * Math.PI;
-      const x1 = 50 + 40 * Math.cos(angle);
-      const y1 = 50 + 40 * Math.sin(angle);
-      angle += sweep;
-      const x2 = 50 + 40 * Math.cos(angle);
-      const y2 = 50 + 40 * Math.sin(angle);
-      const large = sweep > Math.PI ? 1 : 0;
-      return (
-        <path
-          key={s.label}
-          d={`M50,50 L${x1.toFixed(1)},${y1.toFixed(1)} A40,40 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`}
-          fill={s.color}
-          opacity={0.9}
-        />
-      );
-    });
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-      <svg viewBox="0 0 100 100" style={{ width: 100, height: 100, flexShrink: 0 }}>
-        {paths.length ? paths : <circle cx="50" cy="50" r="40" fill="#ddd" />}
-      </svg>
-      <div style={{ fontSize: 12 }}>
-        {segments.map(s => (
-          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, color: "var(--color-text-secondary)" }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0, display: "inline-block" }} />
-            {s.label}: <strong>{s.val}</strong>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RevenueBars({ orders }) {
-  const last7 = [...orders].slice(0, 7).reverse();
-  const max = Math.max(...last7.map(o => o.total || 0), 1);
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 120 }}>
-      {last7.map((o, i) => {
-        const h = Math.round(((o.total || 0) / max) * 100);
-        const lbl = o.orderDate
-          ? new Date(o.orderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
-          : "—";
-        return (
-          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flex: 1 }}>
-            <div
-              title={`₹${o.total || 0}`}
-              style={{ width: "100%", height: h, borderRadius: "3px 3px 0 0", background: "#e91e63", opacity: 0.85, minHeight: 4 }}
-            />
-            <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{lbl}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function LineChart({ orders }) {
-  const last7 = [...orders].slice(0, 7).reverse();
-  if (last7.length < 2) return null;
-  const maxVal = Math.max(...last7.map(o => o.total || 0), 1);
-  const pts = last7.map((o, i) => {
-    const x = Math.round((i / (last7.length - 1)) * 480 + 10);
-    const y = Math.round(80 - ((o.total || 0) / maxVal) * 70);
-    return `${x},${y}`;
-  });
-  return (
-    <svg viewBox="0 0 500 100" preserveAspectRatio="none" style={{ width: "100%", height: 120 }}>
-      <polyline points={pts.join(" ")} fill="none" stroke="#e91e63" strokeWidth="2" strokeLinejoin="round" />
-      {pts.map((p, i) => {
-        const [x, y] = p.split(",");
-        return <circle key={i} cx={x} cy={y} r="3" fill="#e91e63" />;
-      })}
-    </svg>
-  );
-}
+const BASE_URL = "https://firstcry-backend1.onrender.com";
 
 function Dashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({});
   const [orders, setOrders] = useState([]);
-  const [time, setTime] = useState(new Date().toLocaleTimeString());
-
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date().toLocaleTimeString()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  const fetchStats = async () => {
-    try {
-      const res = await axios.get(`${BASE}/admin/stats`);
-      setStats(res.data);
-    } catch (err) { console.log(err); }
-  };
-
-  const fetchOrders = async () => {
-    try {
-      const res = await axios.get(`${BASE}/admin/recent-orders`);
-      setOrders(res.data);
-    } catch (err) { console.log(err); }
-  };
 
   useEffect(() => {
     fetchStats();
     fetchOrders();
-    const interval = setInterval(() => { fetchStats(); fetchOrders(); }, 5000);
-    return () => clearInterval(interval);
   }, []);
 
-  const statusClass = (s) => {
-    if (s === "Delivered") return "s-delivered";
-    if (s === "Placed") return "s-placed";
-    return "s-cancelled";
+  const fetchStats = async () => {
+    try {
+      const res = await axios.get(BASE_URL + "/admin/stats");
+      setStats(res.data);
+    } catch (err) {
+      console.log(err);
+    }
   };
 
+  const fetchOrders = async () => {
+    try {
+      const res = await axios.get(BASE_URL + "/admin/recent-orders");
+      setOrders(res.data);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  // ── Bar chart data: count orders per day of week ──
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+  orders.forEach((o) => {
+    if (o.createdAt) {
+      const d = new Date(o.createdAt).getDay();
+      dayCounts[d]++;
+    }
+  });
+  const maxCount = Math.max(...dayCounts, 1);
+
+  // ── Pie chart: Delivered, Pending, Cancelled ──
+  const delivered  = orders.filter(o => o.orderStatus === "Delivered").length;
+  const pending    = orders.filter(o => o.orderStatus === "Placed").length;
+  const cancelled  = orders.filter(o => o.orderStatus === "Cancelled").length;
+  const pieTotal   = delivered + pending + cancelled || 1;
+
+  // Build SVG pie slices
+  function buildPie() {
+    const cx = 80, cy = 80, r = 70;
+    const slices = [
+      { value: delivered, color: "#ffb6c1", label: delivered },   // pink
+      { value: cancelled, color: "#6a0dad", label: cancelled },   // purple
+      { value: pending,   color: "#0000cd", label: pending   },   // blue
+    ];
+    let startAngle = -Math.PI / 2;
+    return slices.map((s, i) => {
+      if (s.value === 0) return null;
+      const sweep = (s.value / pieTotal) * 2 * Math.PI;
+      const x1 = cx + r * Math.cos(startAngle);
+      const y1 = cy + r * Math.sin(startAngle);
+      startAngle += sweep;
+      const x2 = cx + r * Math.cos(startAngle);
+      const y2 = cy + r * Math.sin(startAngle);
+      const large = sweep > Math.PI ? 1 : 0;
+      // label position
+      const midAngle = startAngle - sweep / 2;
+      const lx = cx + (r * 0.65) * Math.cos(midAngle);
+      const ly = cy + (r * 0.65) * Math.sin(midAngle);
+      return (
+        <g key={i}>
+          <path
+            d={`M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`}
+            fill={s.color}
+          />
+          <text x={lx.toFixed(1)} y={ly.toFixed(1)} fontSize="12" fill="white" textAnchor="middle" dominantBaseline="middle" fontWeight="bold">
+            {s.label}
+          </text>
+        </g>
+      );
+    });
+  }
+
   return (
-    <div className="dash">
+    <div className="dash-wrapper">
+
+      {/* Sidebar */}
       <div className="sidebar">
-        <div className="sidebar-logo">FirstCry Admin</div>
-        <div className="nav-item active">■ Dashboard</div>
-        <div className="nav-item" onClick={() => navigate("/Addproducts")}>+ Add Product</div>
-        <div className="nav-item" onClick={() => navigate("/Manageproducts")}>◈ Manage Products</div>
-        <div className="nav-item" onClick={() => navigate("/Manageorder")}>◷ Manage Orders</div>
-        <div className="nav-item" onClick={() => navigate("/Users")}>◉ Users</div>
+        <h2 className="sidebar-title">Admin</h2>
+        <ul className="sidebar-menu">
+          <li className="active">Dashboard</li>
+          <li onClick={() => navigate("/Addproducts")}>Add Product</li>
+          <li onClick={() => navigate("/Manageproducts")}>Products</li>
+          <li onClick={() => navigate("/Users")}>Users</li>
+          <li onClick={() => navigate("/Manageorder")}>Orders</li>
+        </ul>
       </div>
 
+      {/* Main Content */}
       <div className="dash-main">
-        <div className="topbar">
-          <h2>Dashboard</h2>
-          <span className="badge">{time}</span>
-        </div>
+        <h1 className="dash-heading">Dashboard</h1>
 
-        <div className="stat-cards">
-          <div className="card card-accent">
-            <div className="card-label">Total Products</div>
-            <div className="card-value">{stats.totalProducts ?? "—"}</div>
-            <div className="card-sub">in catalogue</div>
+        {/* Stat Cards */}
+        <div className="cards-row">
+          <div className="card card-blue">
+            <p className="card-label">Orders</p>
+            <p className="card-value">{stats.totalOrders || 0}</p>
           </div>
-          <div className="card">
-            <div className="card-label">Total Orders</div>
-            <div className="card-value">{stats.totalOrders ?? "—"}</div>
-            <div className="card-sub">all time</div>
+          <div className="card card-teal">
+            <p className="card-label">Revenue</p>
+            <p className="card-value">₹{stats.totalRevenue || 0}</p>
           </div>
-          <div className="card">
-            <div className="card-label">Users</div>
-            <div className="card-value">{stats.totalUsers ?? "—"}</div>
-            <div className="card-sub">registered</div>
+          <div className="card card-pink">
+            <p className="card-label">Users</p>
+            <p className="card-value">{stats.totalUsers || 0}</p>
           </div>
-          <div className="card">
-            <div className="card-label">Revenue</div>
-            <div className="card-value">
-              {stats.totalRevenue != null ? `₹${Number(stats.totalRevenue).toLocaleString("en-IN")}` : "—"}
-            </div>
-            <div className="card-sub">total earnings</div>
+          <div className="card card-green">
+            <p className="card-label">Products</p>
+            <p className="card-value">{stats.totalProducts || 0}</p>
           </div>
         </div>
 
+        {/* Charts Row */}
         <div className="charts-row">
-          <div className="chart-box">
-            <div className="chart-title">Revenue — last 7 orders</div>
-            <RevenueBars orders={orders} />
-          </div>
-          <div className="chart-box">
-            <div className="chart-title">Order status</div>
-            <PieChart orders={orders} />
-          </div>
-        </div>
 
-        <div className="chart-box" style={{ marginBottom: "1.5rem" }}>
-          <div className="chart-title">Orders trend — last 7</div>
-          <LineChart orders={orders} />
-        </div>
+          {/* Bar Chart */}
+          <div className="chart-box">
+            <h3>Weekly Orders</h3>
+            <div className="bar-chart">
+              {/* Y axis labels */}
+              <div className="y-axis">
+                {[...Array(maxCount + 1)].map((_, i) => (
+                  <span key={i}>{maxCount - i}</span>
+                )).slice(0, 5)}
+              </div>
+              {/* Bars */}
+              <div className="bars">
+                {days.map((day, i) => (
+                  <div className="bar-col" key={i}>
+                    <div
+                      className="bar"
+                      style={{ height: `${(dayCounts[i] / maxCount) * 150}px` }}
+                    ></div>
+                    <span className="bar-label">{day}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-        <div className="orders-table">
-          <div className="tbl-section-title">Recent orders</div>
-          <div className="tbl-head">
-            <span>Order ID</span><span>Customer</span><span>Amount</span><span>Status</span>
+          {/* Pie Chart */}
+          <div className="chart-box">
+            <h3>Store Overview</h3>
+            <svg viewBox="0 0 160 160" width="180" height="180">
+              {buildPie()}
+            </svg>
           </div>
-          <div>
-            {orders.length === 0 && (
-              <div className="tbl-row" style={{ gridTemplateColumns: "1fr", color: "var(--color-text-tertiary)" }}>
-                No orders yet
-              </div>
-            )}
-            {orders.slice(0, 10).map(o => (
-              <div className="tbl-row" key={o._id}>
-                <span style={{ fontFamily: "monospace", fontSize: 12 }}>#{String(o._id).slice(-6).toUpperCase()}</span>
-                <span>{o.name || o.customerName || "—"}</span>
-                <span>₹{Number(o.total || 0).toLocaleString("en-IN")}</span>
-                <span><span className={`status-pill ${statusClass(o.orderStatus)}`}>{o.orderStatus || "—"}</span></span>
-              </div>
-            ))}
-          </div>
+
         </div>
       </div>
     </div>
