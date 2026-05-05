@@ -1,0 +1,110 @@
+.mu-wrapper {
+  background-color: #f0eef8;
+  min-height: 100vh;
+  padding: 30px 20px;
+  font-family: sans-serif;
+}
+
+.mu-box {
+  background: white;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.mu-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.mu-search {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  width: 200px;
+  margin-bottom: 16px;
+  outline: none;
+}
+
+.mu-search:focus {
+  border-color: #6a0dad;
+}
+
+.mu-loading {
+  text-align: center;
+  color: #888;
+  padding: 10px;
+}
+
+/* Table */
+.mu-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mu-table thead tr {
+  background-color: #6a0dad;
+  color: white;
+}
+
+.mu-table th {
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.mu-table td {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+}
+
+.mu-table tbody tr:hover {
+  background-color: #fafafa;
+}
+
+/* Status */
+.status-active {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.status-inactive {
+  color: #888;
+  font-weight: 600;
+}
+
+/* Buttons */
+.btn-block {
+  background-color: #ff9800;
+  color: white;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+.btn-block:hover {
+  background-color: #e65100;
+}
+
+.btn-delete {
+  background-color: #e53935;
+  color: white;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-delete:hover {
+  background-color: #b71c1c;
+}

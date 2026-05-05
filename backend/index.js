@@ -13,6 +13,7 @@ import CustomerModel from "./models/Customer.js";
 import ProductModel from "./models/Product.js";
 import Cart from "./models/Cart.js";
 import Order from "./models/Order.js";
+import UserModel from "./models/User.js";
 
 dotenv.config();
 
@@ -393,6 +394,36 @@ app.get("/admin/stats", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get("/users", async (req, res) => {
+  try {
+    const users = await UserModel.find().sort({ createdAt: -1 });
+
+    // count orders per user
+    const usersWithOrders = await Promise.all(
+      users.map(async (user) => {
+        const orderCount = await Order.countDocuments({ email: user.email });
+        return {
+          _id:         user._id,
+          name:        user.name,
+          email:       user.email,
+          phone:       user.phone || "—",
+          isActive:    user.isActive,
+          joinedOn:    user.createdAt,
+          lastActive:  user.updatedAt,
+          totalOrders: orderCount,
+        };
+      })
+    );
+
+    res.json({ success: true, users: usersWithOrders });
+  } catch (err) {
+    console.log("users error:", err.message);
+    res.status(500).json({ success: false, message: "Error fetching users" });
+  }
+});
+
+
 
 
 app.get("/generate-invoice/:orderId", async (req, res) => {
