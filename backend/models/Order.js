@@ -1,4 +1,4 @@
-// models/Order.js — make sure these fields exist
+import mongoose from "mongoose";
 const orderSchema = new mongoose.Schema({
   fullName:      String,
   phone:         String,
