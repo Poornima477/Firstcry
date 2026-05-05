@@ -1,30 +1,17 @@
-import mongoose from "mongoose";
+// models/Order.js — make sure these fields exist
+const orderSchema = new mongoose.Schema({
+  fullName:      String,
+  phone:         String,
+  email:         String,   // ← this is what we search by
+  address:       String,
+  city:          String,
+  state:         String,
+  pincode:       String,
+  items:         Array,
+  total:         Number,
+  payment:       String,
+  orderStatus:   { type: String, default: "Placed" },
+  paymentStatus: { type: String, default: "Pending" },
+}, { timestamps: true });   // ← timestamps gives createdAt automatically
 
-const OrderSchema = new mongoose.Schema({
-  fullName: String,
-  phone: String,
-  email:String,
-  address: String,
-  city: String,
-  state: String,
-  pincode: String,
-
-  items: [
-    {
-      name: String,
-      price: Number,
-      quantity: Number,
-      image: String
-    }
-  ],
-
-  total: Number,
-
-  payment: String,
-  paymentStatus: String,
-  orderStatus: String
-}, { timestamps: true });
-
-const OrderModel = mongoose.model("Order",OrderSchema)
-export default OrderModel;
- 
+export default mongoose.model("Order", orderSchema);

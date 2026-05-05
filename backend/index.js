@@ -313,6 +313,9 @@ app.get("/order", async (req, res) => {
 });
 
 
+
+
+
 app.put("/update-payment/:id", async (req, res) => {
   try {
     const updated = await Order.findByIdAndUpdate(
@@ -350,6 +353,18 @@ app.post("/verify-payment", async (req, res) => {
     res.json({ success: true });
   } else {
     res.json({ success: false });
+  }
+});
+
+// GET orders by user email
+app.get("/my-orders/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const orders = await Order.find({ email: email }).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    console.log("my-orders error:", err.message);
+    res.status(500).json({ message: "Error fetching orders" });
   }
 });
 
