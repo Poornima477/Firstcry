@@ -14,6 +14,7 @@ import ProductModel from "./models/Product.js";
 import Cart from "./models/Cart.js";
 import Order from "./models/Order.js";
 import UserModel from "./models/User.js";
+import { generateInvoicePDF } from "./components/generateInvoice.js";
 
 dotenv.config();
 
@@ -200,6 +201,27 @@ app.get("/users", async (req, res) => {
   }
 });
 
+app.put("/users/block/:id", async (req, res) => {
+  try {
+    const user = await CustomerModel.findById(req.params.id);
+    user.isActive = !user.isActive;
+    await user.save();
+    res.json({ success: true, isActive: user.isActive });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── DELETE USER ──
+app.delete("/users/delete/:id", async (req, res) => {
+  try {
+    await CustomerModel.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "User deleted" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 app.post("/admin/login", async (req, res) => {
   try {
@@ -340,24 +362,43 @@ app.get("/order", async (req, res) => {
   res.json(await Order.find());
 });
 
-
-
-
-
-app.put("/update-payment/:id", async (req, res) => {
+app.put("/update-payment/:orderId", async (req, res) => {
   try {
-    const updated = await Order.findByIdAndUpdate(
-      req.params.id,
-      { payment: req.body.paymentMethod, paymentStatus: req.body.status },
+    const order = await Order.findByIdAndUpdate(
+      req.params.orderId,
+      { paymentStatus: "Pending", payment: "cod" },
       { new: true }
     );
-    if (!updated) return res.status(404).json({ message: "Order not found" });
-    res.json({ success: true, order: updated });
+
+    // ── Send GST Invoice ──
+    const pdfBuffer = await generateInvoicePDF(order);
+    await transporter.sendMail({
+      from: process.env.SENDGRID_EMAIL,
+      to: order.email,
+      subject: `GST Invoice - Order #${String(order._id).slice(-6).toUpperCase()}`,
+      html: `<p>Dear <strong>${order.fullName}</strong>,</p>
+             <p>Your order has been placed successfully!</p>
+             <p>Please find your GST invoice attached.</p>
+             <p><strong>Total: ₹${order.total}</strong></p>
+             <p>Team FirstCry</p>`,
+      attachments: [{
+        filename: `Invoice_${String(order._id).slice(-6).toUpperCase()}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf"
+      }]
+    });
+
+    console.log("Invoice sent to:", order.email);
+    res.json({ success: true });
+
   } catch (err) {
-    console.error("Update payment error:", err);
-    res.status(500).json({ message: "Error updating payment" });
+    console.log("update-payment error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
+
 
 
 app.post("/create-razorpay-order", async (req, res) => {
@@ -369,18 +410,50 @@ app.post("/create-razorpay-order", async (req, res) => {
 });
 
 app.post("/verify-payment", async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
-  const sign = razorpay_order_id + "|" + razorpay_payment_id;
-  const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(sign)
-    .digest("hex");
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
 
-  if (expected === razorpay_signature) {
-    await Order.findByIdAndUpdate(orderId, { paymentStatus: "Paid" });
-    res.json({ success: true });
-  } else {
-    res.json({ success: false });
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(sign)
+      .digest("hex");
+
+    if (expected === razorpay_signature) {
+      const order = await Order.findByIdAndUpdate(
+        orderId,
+        { paymentStatus: "Paid", payment: "online" },
+        { new: true }
+      );
+
+      // ── Send GST Invoice ──
+      const pdfBuffer = await generateInvoicePDF(order);
+      await transporter.sendMail({
+        from: process.env.SENDGRID_EMAIL,
+        to: order.email,
+        subject: `GST Invoice - Order #${String(order._id).slice(-6).toUpperCase()}`,
+        html: `<p>Dear <strong>${order.fullName}</strong>,</p>
+               <p>Payment received successfully!</p>
+               <p>Please find your GST invoice attached.</p>
+               <p><strong>Total: ₹${order.total}</strong></p>
+               <p>Team FirstCry</p>`,
+        attachments: [{
+          filename: `Invoice_${String(order._id).slice(-6).toUpperCase()}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf"
+        }]
+      });
+
+      console.log("Invoice sent to:", order.email);
+      res.json({ success: true });
+
+    } else {
+      res.json({ success: false, message: "Invalid signature" });
+    }
+
+  } catch (err) {
+    console.log("verify-payment error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -471,85 +544,141 @@ app.delete("/users/delete/:id", async (req, res) => {
   }
 });
 
+import PDFDocument from "pdfkit";
 
+// ── GENERATE & SEND GST INVOICE ──
 app.get("/generate-invoice/:orderId", async (req, res) => {
   try {
     const order = await Order.findById(req.params.orderId);
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
 
+    // ── Create PDF ──
     const doc = new PDFDocument({ margin: 50 });
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=invoice-${order._id}.pdf`);
-    doc.pipe(res);
+    const buffers = [];
 
-    const gstRate = 0.18;
-    const baseAmount = order.total / (1 + gstRate);
-    const gstAmount = order.total - baseAmount;
-    const cgst = gstAmount / 2;
-    const sgst = gstAmount / 2;
+    doc.on("data", chunk => buffers.push(chunk));
+    doc.on("end", async () => {
+      const pdfBuffer = Buffer.concat(buffers);
 
-    doc.fontSize(22).fillColor("#e91e63").text("FirstCry", 50, 50)
-      .fontSize(10).fillColor("#555")
-      .text("www.firstcry.com", 50, 78)
-      .text("GSTIN: 27AAAAA0000A1Z5", 50, 90)
-      .text("support@firstcry.com | +91-9999999999", 50, 102);
-    doc.fontSize(18).fillColor("#000").text("TAX INVOICE", 400, 50, { align: "right" })
-      .fontSize(10).fillColor("#555")
-      .text(`Invoice No: INV-${order._id.toString().slice(-6).toUpperCase()}`, 400, 78, { align: "right" })
-      .text(`Date: ${new Date(order.createdAt).toLocaleDateString("en-IN")}`, 400, 90, { align: "right" })
-      .text(`Order ID: ${order._id}`, 400, 102, { align: "right" });
-    doc.moveTo(50, 125).lineTo(550, 125).strokeColor("#e91e63").lineWidth(2).stroke();
+      // ── Send PDF to email ──
+      await transporter.sendMail({
+        from: process.env.SENDGRID_EMAIL,
+        to: order.email,
+        subject: `GST Invoice - Order #${String(order._id).slice(-6).toUpperCase()}`,
+        html: `
+          <p>Dear <strong>${order.fullName}</strong>,</p>
+          <p>Thank you for shopping with FirstCry!</p>
+          <p>Please find your GST invoice attached for Order 
+             <strong>#${String(order._id).slice(-6).toUpperCase()}</strong>.</p>
+          <p>Total Amount: <strong>₹${order.total}</strong></p>
+          <br/>
+          <p>Team FirstCry</p>
+        `,
+        attachments: [
+          {
+            filename: `Invoice_${String(order._id).slice(-6).toUpperCase()}.pdf`,
+            content: pdfBuffer,
+            contentType: "application/pdf"
+          }
+        ]
+      });
 
-    doc.fontSize(11).fillColor("#000").text("Bill To:", 50, 140)
-      .fontSize(10).fillColor("#333")
-      .text(order.fullName, 50, 155)
-      .text(order.phone, 50, 168)
-      .text(order.email, 50, 181)
-      .text(`${order.address}, ${order.city}`, 50, 194)
-      .text(`${order.state} - ${order.pincode}`, 50, 207);
-    doc.fontSize(11).fillColor("#000").text("Payment Info:", 350, 140)
-      .fontSize(10).fillColor("#333")
-      .text(`Method: ${order.payment}`, 350, 155)
-      .text(`Status: ${order.paymentStatus}`, 350, 168)
-      .text(`Order Status: ${order.orderStatus}`, 350, 181);
-
-    doc.rect(50, 235, 500, 20).fill("#e91e63");
-    doc.fillColor("#fff").text("Item", 55, 240).text("Qty", 320, 240)
-      .text("Unit Price", 370, 240).text("Amount", 470, 240);
-
-    let y = 265;
-    order.items.forEach((item, i) => {
-      const rowColor = i % 2 === 0 ? "#fff" : "#fce4ec";
-      doc.rect(50, y - 5, 500, 20).fill(rowColor);
-      doc.fillColor("#333")
-        .text(item.name, 55, y, { width: 260 })
-        .text(item.quantity.toString(), 320, y)
-        .text(`Rs. ${item.price.toFixed(2)}`, 370, y)
-        .text(`Rs. ${(item.price * item.quantity).toFixed(2)}`, 470, y);
-      y += 25;
+      res.json({ success: true, message: "Invoice sent to " + order.email });
     });
 
-    y += 15;
-    doc.fillColor("#333").text("Subtotal (excl. GST):", 350, y).text(`Rs. ${baseAmount.toFixed(2)}`, 470, y);
-    y += 18;
-    doc.text("CGST (9%):", 350, y).text(`Rs. ${cgst.toFixed(2)}`, 470, y);
-    y += 18;
-    doc.text("SGST (9%):", 350, y).text(`Rs. ${sgst.toFixed(2)}`, 470, y);
-    y += 18;
-    doc.rect(340, y - 3, 210, 22).fill("#e91e63");
-    doc.fontSize(11).fillColor("#fff")
-      .text("Total (incl. GST):", 350, y + 2)
-      .text(`Rs. ${order.total.toFixed(2)}`, 470, y + 2);
+    // ── PDF Content ──
 
-    y += 50;
-    doc.moveTo(50, y).lineTo(550, y).strokeColor("#e91e63").lineWidth(1).stroke();
+    // Header
+    doc.fontSize(20).fillColor("#6a0dad").text("FIRSTCRY", { align: "center" });
+    doc.fontSize(10).fillColor("#555").text("Online Baby & Kids Store", { align: "center" });
+    doc.moveDown();
+
+    // GST Invoice Title
+    doc.fontSize(16).fillColor("#000").text("GST INVOICE", { align: "center" });
+    doc.moveDown(0.5);
+
+    // Divider line
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown();
+
+    // Invoice details
+    doc.fontSize(10).fillColor("#333");
+    doc.text(`Invoice No  : #${String(order._id).slice(-6).toUpperCase()}`);
+    doc.text(`Order Date  : ${new Date(order.createdAt).toLocaleDateString("en-IN")}`);
+    doc.text(`Payment     : ${order.payment}`);
+    doc.text(`Order Status: ${order.orderStatus}`);
+    doc.moveDown();
+
+    // Customer details
+    doc.fontSize(12).fillColor("#6a0dad").text("Bill To:");
+    doc.fontSize(10).fillColor("#333");
+    doc.text(`Name    : ${order.fullName}`);
+    doc.text(`Email   : ${order.email}`);
+    doc.text(`Phone   : ${order.phone}`);
+    doc.text(`Address : ${order.address}, ${order.city}, ${order.state} - ${order.pincode}`);
+    doc.moveDown();
+
+    // Divider
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(0.5);
+
+    // Items table header
+    doc.fontSize(11).fillColor("#fff")
+      .rect(50, doc.y, 500, 20).fill("#6a0dad");
+    doc.fillColor("#fff")
+      .text("Item Name",   55, doc.y - 16)
+      .text("Qty",        350, doc.y - 16)
+      .text("Price",      420, doc.y - 16)
+      .text("Subtotal",   480, doc.y - 16);
+    doc.moveDown(0.8);
+
+    // Items rows
+    doc.fontSize(10).fillColor("#333");
+    let y = doc.y;
+    order.items.forEach((item, i) => {
+      const subtotal = (item.price || 0) * (item.quantity || 1);
+      if (i % 2 === 0) {
+        doc.rect(50, y, 500, 20).fill("#f5f0ff");
+      }
+      doc.fillColor("#333")
+        .text(item.name,                          55, y + 5, { width: 280 })
+        .text(String(item.quantity || 1),        350, y + 5)
+        .text(`Rs.${item.price || 0}`,           420, y + 5)
+        .text(`Rs.${subtotal}`,                  480, y + 5);
+      y += 22;
+    });
+
+    doc.moveDown(order.items.length + 1);
+
+    // Divider
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(0.5);
+
+    // GST Calculation (18% GST)
+    const baseAmount = Math.round(order.total / 1.18);
+    const gstAmount  = order.total - baseAmount;
+
+    doc.fontSize(10).fillColor("#333");
+    doc.text(`Base Amount (before GST) : Rs.${baseAmount}`, { align: "right" });
+    doc.text(`GST (18%)                : Rs.${gstAmount}`,  { align: "right" });
+    doc.fontSize(12).fillColor("#6a0dad")
+      .text(`Total Amount             : Rs.${order.total}`, { align: "right" });
+    doc.moveDown();
+
+    // Footer
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(0.5);
     doc.fontSize(9).fillColor("#888")
-      .text("Thank you for shopping with FirstCry!", 50, y + 10, { align: "center", width: 500 })
-      .text("This is a computer-generated invoice.", 50, y + 22, { align: "center", width: 500 });
+      .text("Thank you for shopping with FirstCry!", { align: "center" });
+    doc.text("This is a computer-generated invoice and does not require a signature.", { align: "center" });
+
     doc.end();
+
   } catch (err) {
-    console.error("Invoice error:", err.message);
-    res.status(500).json({ message: "Failed to generate invoice" });
+    console.log("Invoice error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
