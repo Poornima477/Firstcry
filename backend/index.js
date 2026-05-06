@@ -544,7 +544,6 @@ app.delete("/users/delete/:id", async (req, res) => {
   }
 });
 
-import PDFDocument from "pdfkit";
 
 // ── GENERATE & SEND GST INVOICE ──
 app.get("/generate-invoice/:orderId", async (req, res) => {
