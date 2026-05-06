@@ -173,6 +173,33 @@ app.post("/login", async (req, res) => {
   }
 });
 
+app.get("/users", async (req, res) => {
+  try {
+    const users = await CustomerModel.find().sort({ createdAt: -1 });
+
+    const usersWithOrders = await Promise.all(
+      users.map(async (user) => {
+        const orderCount = await Order.countDocuments({ email: user.email });
+        return {
+          _id:         user._id,
+          name:        user.name,
+          email:       user.email,
+          phone:       user.phone || "—",
+          isActive:    user.isActive !== false,
+          joinedOn:    user.createdAt,
+          lastActive:  user.updatedAt,
+          totalOrders: orderCount,
+        };
+      })
+    );
+
+    res.json({ success: true, users: usersWithOrders });
+  } catch (err) {
+    console.log("users error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 app.post("/admin/login", async (req, res) => {
   try {
@@ -383,7 +410,7 @@ app.get("/admin/stats", async (req, res) => {
   try {
     const products = await ProductModel.find();
     const orders = await Order.find();
-    const users = await CustomerModel.find();
+    const users = await UserModel.find();
     res.json({
       totalProducts: products.length,
       totalOrders: orders.length,
@@ -399,7 +426,6 @@ app.get("/users", async (req, res) => {
   try {
     const users = await UserModel.find().sort({ createdAt: -1 });
 
-    // count orders per user
     const usersWithOrders = await Promise.all(
       users.map(async (user) => {
         const orderCount = await Order.countDocuments({ email: user.email });
@@ -424,6 +450,26 @@ app.get("/users", async (req, res) => {
 });
 
 
+app.put("/users/block/:id", async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.params.id);
+    user.isActive = !user.isActive;
+    await user.save();
+    res.json({ success: true, isActive: user.isActive });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error blocking user" });
+  }
+});
+
+
+app.delete("/users/delete/:id", async (req, res) => {
+  try {
+    await UserModel.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "User deleted" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error deleting user" });
+  }
+});
 
 
 app.get("/generate-invoice/:orderId", async (req, res) => {
