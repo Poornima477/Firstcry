@@ -6,7 +6,7 @@
   font-family: sans-serif;
 }
  
-/* Profile Card */
+
 .profile-card {
   background-color: white;
   border-radius: 10px;
@@ -31,7 +31,7 @@
 }
  
 .logout-btn {
-  background-color: #6a0dad;
+  background-color:lch(57.57% 96.71 45.49);
   color: white;
   border: none;
   padding: 8px 24px;
@@ -42,10 +42,9 @@
 }
  
 .logout-btn:hover {
-  background-color: #530da8;
+  background-color:lch(57.57% 96.71 45.49);
 }
  
-/* Order History Section */
 .order-section {
   max-width: 900px;
   margin: 0 auto;
@@ -66,7 +65,7 @@
   font-size: 14px;
 }
  
-/* Table */
+
 .order-table {
   width: 100%;
   border-collapse: collapse;
@@ -77,7 +76,7 @@
 }
  
 .order-table thead tr {
-  background-color: #6a0dad;
+  background-color:lch(57.57% 96.71 45.49);
   color: white;
 }
  
@@ -100,7 +99,7 @@
   background-color: #fafafa;
 }
  
-/* Status colors — matching screenshot */
+
 .status-delivered {
   color: #2e7d32;
   font-weight: 600;

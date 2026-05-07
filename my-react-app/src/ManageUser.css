@@ -30,7 +30,7 @@
 }
 
 .mu-search:focus {
-  border-color: #6a0dad;
+  border-color:lch(57.57% 96.71 45.49);
 }
 
 .mu-loading {
@@ -39,14 +39,14 @@
   padding: 10px;
 }
 
-/* Table */
+
 .mu-table {
   width: 100%;
   border-collapse: collapse;
 }
 
 .mu-table thead tr {
-  background-color: #6a0dad;
+  background-color:lch(57.57% 96.71 45.49);
   color: white;
 }
 
@@ -68,7 +68,7 @@
   background-color: #fafafa;
 }
 
-/* Status */
+
 .status-active {
   color: #2e7d32;
   font-weight: 600;
@@ -79,7 +79,6 @@
   font-weight: 600;
 }
 
-/* Buttons */
 .btn-block {
   background-color: #ff9800;
   color: white;

@@ -29,7 +29,7 @@ function Navbar() {
             onKeyDown={handleSearch}
           />
 
-          <div className="sidebar">
+          <div className="sidebarr">
             <ul>
               <li>Select location</li>
               <li>Store and Preschool</li>

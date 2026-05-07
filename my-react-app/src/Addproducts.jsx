@@ -17,7 +17,7 @@ function AddProducts() {
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     setFile(selected);
-    // Show image preview before upload
+    
     if (selected) {
       setPreview(URL.createObjectURL(selected));
     }
@@ -41,17 +41,16 @@ function AddProducts() {
 
       const response = await axios.post(`${BASE_URL}/add-product`, formData, {
         headers: {
-          "Content-Type": "multipart/form-data"  // ✅ required for file upload
+          "Content-Type": "multipart/form-data" 
         }
       });
 
       console.log("Response:", response.data);
 
       if (response.data.message === "Product Added Successfully") {
-        alert("✅ Product Added Successfully!");
-        console.log("Image URL:", response.data.product.image); // ✅ check Cloudinary URL
-
-        // Reset form
+        alert(" Product Added Successfully!");
+        console.log("Image URL:", response.data.product.image); 
+        
         setCategory("");
         setName("");
         setDescription("");
@@ -99,7 +98,7 @@ function AddProducts() {
       <div className="list">
         <label>Add Product Image</label>
         <input type="file" accept="image/*" onChange={handleFileChange} />
-        {/* ✅ Image preview */}
+      
         {preview && (
           <img
             src={preview}

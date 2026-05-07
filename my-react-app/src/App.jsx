@@ -23,7 +23,7 @@ import Manageorder from "./Manageorder";
 import Editorder from "./Editorder";
 import Search from "./Search";
 import Userpanel from "./Userpanel";
-import ManageUsers from "./ManageUsers";
+import ManageUser from "./ManageUser";
 
 function App() {
 
@@ -67,7 +67,7 @@ function App() {
          <Route path="/Manageorder" element={<Manageorder/>} />
         <Route path="/search" element={<Search/>} />
         <Route path="/Userpanel" element={<Userpanel/>} />
-        <Route path="/Users" element={<ManageUsers />} />
+        <Route path="/ManageUser" element={<ManageUser/>} />
           
         
         <Route path="/login" element={<Login />} />

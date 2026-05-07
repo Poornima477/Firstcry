@@ -1,14 +1,13 @@
 import { createContext, useState } from "react";
 
-// ✅ Create Context
 export const CartContext = createContext();
 
-// ✅ Provider Component
+
 export const CartProvider = ({ children }) => {
 
   const [cart, setCart] = useState([]);
 
-  // ✅ Add to Cart
+
   const addToCart = (product) => {
     const existingItem = cart.find(item => item.id === product._id);
 
@@ -34,12 +33,12 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // ✅ Remove from Cart
+  
   const removeFromCart = (id) => {
     setCart(cart.filter(item => item.id !== id));
   };
 
-  // ✅ Clear Cart
+  
   const clearCart = () => {
     setCart([]);
   };

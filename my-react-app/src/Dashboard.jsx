@@ -33,7 +33,7 @@ function Dashboard() {
     }
   };
 
-  // ── Bar chart data: count orders per day of week ──
+  // ── Bar chart ──
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dayCounts = [0, 0, 0, 0, 0, 0, 0];
   orders.forEach((o) => {
@@ -44,42 +44,60 @@ function Dashboard() {
   });
   const maxCount = Math.max(...dayCounts, 1);
 
-  // ── Pie chart: Delivered, Pending, Cancelled ──
-  const delivered  = orders.filter(o => o.orderStatus === "Delivered").length;
-  const pending    = orders.filter(o => o.orderStatus === "Placed").length;
-  const cancelled  = orders.filter(o => o.orderStatus === "Cancelled").length;
-  const pieTotal   = delivered + pending + cancelled || 1;
+  // ── Pie chart ──
+  const delivered = orders.filter(o => o.orderStatus === "Delivered").length;
+  const pending   = orders.filter(o => o.orderStatus === "Placed").length;
+  const cancelled = orders.filter(o => o.orderStatus === "Cancelled").length;
 
-  // Build SVG pie slices
+  const slices = [
+    { label: "Delivered", value: delivered, color: "#ffb6c1" },
+    { label: "Placed",    value: pending,   color: "#0000cd" },
+    { label: "Cancelled", value: cancelled, color: "#6a0dad" },
+  ].filter(s => s.value > 0); // remove zero slices
+
   function buildPie() {
     const cx = 80, cy = 80, r = 70;
-    const slices = [
-      { value: delivered, color: "#ffb6c1", label: delivered },   // pink
-      { value: cancelled, color: "#6a0dad", label: cancelled },   // purple
-      { value: pending,   color: "#0000cd", label: pending   },   // blue
-    ];
+    const total = slices.reduce((sum, s) => sum + s.value, 0);
+
+    // If only 1 slice — draw a full circle instead (SVG arc can't do 360°)
+    if (slices.length === 1) {
+      return (
+        <g>
+          <circle cx={cx} cy={cy} r={r} fill={slices[0].color} />
+          <text x={cx} y={cy} fontSize="14" fill="white"
+            textAnchor="middle" dominantBaseline="middle" fontWeight="bold">
+            {slices[0].value}
+          </text>
+        </g>
+      );
+    }
+
+    // If no orders at all — grey circle
+    if (total === 0) {
+      return <circle cx={cx} cy={cy} r={r} fill="#ddd" />;
+    }
+
     let startAngle = -Math.PI / 2;
     return slices.map((s, i) => {
-      if (s.value === 0) return null;
-      const sweep = (s.value / pieTotal) * 2 * Math.PI;
+      const sweep = (s.value / total) * 2 * Math.PI;
       const x1 = cx + r * Math.cos(startAngle);
       const y1 = cy + r * Math.sin(startAngle);
       startAngle += sweep;
       const x2 = cx + r * Math.cos(startAngle);
       const y2 = cy + r * Math.sin(startAngle);
       const large = sweep > Math.PI ? 1 : 0;
-      // label position
       const midAngle = startAngle - sweep / 2;
-      const lx = cx + (r * 0.65) * Math.cos(midAngle);
-      const ly = cy + (r * 0.65) * Math.sin(midAngle);
+      const lx = cx + r * 0.65 * Math.cos(midAngle);
+      const ly = cy + r * 0.65 * Math.sin(midAngle);
       return (
         <g key={i}>
           <path
             d={`M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`}
             fill={s.color}
           />
-          <text x={lx.toFixed(1)} y={ly.toFixed(1)} fontSize="12" fill="white" textAnchor="middle" dominantBaseline="middle" fontWeight="bold">
-            {s.label}
+          <text x={lx.toFixed(1)} y={ly.toFixed(1)} fontSize="12" fill="white"
+            textAnchor="middle" dominantBaseline="middle" fontWeight="bold">
+            {s.value}
           </text>
         </g>
       );
@@ -96,7 +114,7 @@ function Dashboard() {
           <li className="active">Dashboard</li>
           <li onClick={() => navigate("/Addproducts")}>Add Product</li>
           <li onClick={() => navigate("/Manageproducts")}>Products</li>
-          <li onClick={() => navigate("/Users")}>Users</li>
+          <li onClick={() => navigate("/ManageUser")}>Users</li>
           <li onClick={() => navigate("/Manageorder")}>Orders</li>
         </ul>
       </div>
@@ -132,13 +150,11 @@ function Dashboard() {
           <div className="chart-box">
             <h3>Weekly Orders</h3>
             <div className="bar-chart">
-              {/* Y axis labels */}
               <div className="y-axis">
-                {[...Array(maxCount + 1)].map((_, i) => (
-                  <span key={i}>{maxCount - i}</span>
-                )).slice(0, 5)}
+                {[...Array(5)].map((_, i) => (
+                  <span key={i}>{Math.round(maxCount - (i * maxCount / 4))}</span>
+                ))}
               </div>
-              {/* Bars */}
               <div className="bars">
                 {days.map((day, i) => (
                   <div className="bar-col" key={i}>
@@ -156,9 +172,26 @@ function Dashboard() {
           {/* Pie Chart */}
           <div className="chart-box">
             <h3>Store Overview</h3>
-            <svg viewBox="0 0 160 160" width="180" height="180">
-              {buildPie()}
-            </svg>
+            <div className="pie-area">
+              <svg viewBox="0 0 160 160" width="180" height="180">
+                {buildPie()}
+              </svg>
+              {/* Legend */}
+              <div className="pie-legend">
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: "#ffb6c1" }}></span>
+                  Delivered: <b>{delivered}</b>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: "#0000cd" }}></span>
+                  Placed: <b>{pending}</b>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: "#6a0dad" }}></span>
+                  Cancelled: <b>{cancelled}</b>
+                </div>
+              </div>
+            </div>
           </div>
 
         </div>

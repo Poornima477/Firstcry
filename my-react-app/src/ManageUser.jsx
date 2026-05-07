@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import "./ManageUsers.css";
+import "./ManageUser.css";
 
 const BASE_URL = "https://firstcry-backend1.onrender.com";
 
-function ManageUsers() {
+function ManageUser() {
   const [users, setUsers]     = useState([]);
   const [search, setSearch]   = useState("");
   const [loading, setLoading] = useState(false);
@@ -142,4 +142,4 @@ function ManageUsers() {
   );
 }
 
-export default ManageUsers;
+export default ManageUser;

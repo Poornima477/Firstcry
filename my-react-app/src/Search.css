@@ -1,0 +1,39 @@
+.search-container {
+  width: 400px;
+  margin: 20px auto;
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+.dropdown {
+  position: absolute;
+  width: 100%;
+  background: white;
+  border: 1px solid #ddd;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background-color: #f5f5f5;
+}
+
+.dropdown-img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  margin-right: 10px;
+}

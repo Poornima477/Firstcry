@@ -1,19 +1,18 @@
-/* ── Layout ── */
+
 .dash-wrapper {
   display: flex;
   min-height: 100vh;
   font-family: sans-serif;
   background: #f4f4f4;
 }
- 
-/* ── Sidebar ── */
+
 .sidebar {
   width: 160px;
-  background-color: #6a0dad;
+  background-color:lch(57.57% 96.71 45.49);
   padding: 20px 0;
   flex-shrink: 0;
 }
- 
+
 .sidebar-title {
   color: white;
   text-align: center;
@@ -22,13 +21,13 @@
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.3);
 }
- 
+
 .sidebar-menu {
   list-style: none;
   padding: 0;
   margin: 0;
 }
- 
+
 .sidebar-menu li {
   color: white;
   padding: 12px 20px;
@@ -39,17 +38,15 @@
   margin: 4px 10px;
   transition: background 0.2s;
 }
- 
 .sidebar-menu li:hover {
   background-color: rgba(255,255,255,0.15);
-}
- 
+} 
+
 .sidebar-menu li.active {
   background-color: rgba(255,255,255,0.25);
   font-weight: 600;
 }
  
-/* ── Main ── */
 .dash-main {
   flex: 1;
   padding: 30px;
@@ -61,8 +58,6 @@
   color: #222;
   margin-bottom: 24px;
 }
- 
-/* ── Stat Cards ── */
 .cards-row {
   display: flex;
   gap: 16px;
@@ -83,7 +78,7 @@
   margin-bottom: 8px;
   opacity: 0.9;
 }
- 
+
 .card-value {
   font-size: 28px;
   font-weight: bold;
@@ -94,7 +89,6 @@
 .card-pink  { background: linear-gradient(135deg, #e91e8c, #f06292); }
 .card-green { background: linear-gradient(135deg, #43a047, #66bb6a); }
  
-/* ── Charts Row ── */
 .charts-row {
   display: flex;
   gap: 20px;
@@ -116,7 +110,6 @@
   margin-bottom: 16px;
 }
  
-/* ── Bar Chart ── */
 .bar-chart {
   display: flex;
   align-items: flex-end;
@@ -168,4 +161,32 @@
   font-size: 11px;
   color: #777;
   margin-top: 5px;
+}
+ 
+.pie-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+ 
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+ 
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #444;
+}
+ 
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
 }

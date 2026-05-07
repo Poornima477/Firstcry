@@ -25,7 +25,7 @@ function Orders() {
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ Download GST Invoice
+ 
   const downloadInvoice = (orderId) => {
     window.open(`${BASE_URL}/generate-invoice/${orderId}`, "_blank");
   };
@@ -59,7 +59,7 @@ function Orders() {
           <p><strong>Total:</strong> ₹ {order.total}</p>
           <p><strong>Payment:</strong> {order.paymentStatus}</p>
 
-          {/* ✅ GST Invoice Button */}
+       
           <button
             onClick={() => downloadInvoice(order._id)}
             style={{
