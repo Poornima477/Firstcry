@@ -7,14 +7,13 @@ import { v2 as cloudinary } from "cloudinary";
 import sgMail from "@sendgrid/mail";
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import PDFDocument from "pdfkit";
 
 import CustomerModel from "./models/Customer.js";
 import ProductModel from "./models/Product.js";
 import Cart from "./models/Cart.js";
 import Order from "./models/Order.js";
 import UserModel from "./models/User.js";
-import { generateInvoicePDF } from "./components/generateInvoice.js";
+import { generateInvoicePDF, sendInvoiceEmail } from "./components/generateInvoice.js";
 
 dotenv.config();
 
@@ -50,22 +49,23 @@ const razorpay = new Razorpay({
 });
 
 
-// ── Debug: check env keys (remove after confirming payment works) ─────────────
+// ── Debug: check env keys ─────────────────────────────────────────────────────
 app.get("/check-keys", (req, res) => {
   res.json({
-    key_id: process.env.RAZORPAY_KEY_ID || "❌ MISSING",
+    key_id:     process.env.RAZORPAY_KEY_ID    || "❌ MISSING",
     key_secret: process.env.RAZORPAY_KEY_SECRET ? "✅ Secret exists" : "❌ MISSING"
   });
 });
 
 
+// ── Test Email ────────────────────────────────────────────────────────────────
 app.get("/test-email", async (req, res) => {
   try {
     await sgMail.send({
-      from: process.env.SENDGRID_EMAIL,
-      to: process.env.SENDGRID_EMAIL,
+      from:    process.env.SENDGRID_EMAIL,
+      to:      process.env.SENDGRID_EMAIL,
       subject: "Test - SendGrid HTTP API",
-      text: "SendGrid HTTP API is working!"
+      text:    "SendGrid HTTP API is working!"
     });
     res.json({ success: true, message: "Email sent!" });
   } catch (err) {
@@ -75,16 +75,17 @@ app.get("/test-email", async (req, res) => {
 });
 
 
+// ── Register ──────────────────────────────────────────────────────────────────
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) {
+    if (!name || !email || !password)
       return res.status(400).json({ success: false, message: "All fields required" });
-    }
+
     let user = await CustomerModel.findOne({ email });
-    if (user && user.isVerified) {
+    if (user && user.isVerified)
       return res.json({ success: false, message: "Email already registered. Please login." });
-    }
+
     if (!user) {
       user = new CustomerModel({ name, email, password });
       await user.save();
@@ -92,18 +93,19 @@ app.post("/register", async (req, res) => {
     res.json({ success: true, message: "Registered successfully" });
   } catch (err) {
     console.error("Register error:", err.message);
-    if (err.code === 11000) {
+    if (err.code === 11000)
       return res.json({ success: false, message: "Email already exists. Please login." });
-    }
     res.status(500).json({ success: false, message: "Registration failed" });
   }
 });
 
 
+// ── Send OTP ──────────────────────────────────────────────────────────────────
 app.post("/sendVerifyOtp", async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: "Email required" });
+
     const user = await CustomerModel.findOne({ email });
     if (!user) return res.status(404).json({ success: false, message: "User not found. Please register first." });
 
@@ -112,8 +114,8 @@ app.post("/sendVerifyOtp", async (req, res) => {
     await user.save();
 
     await sgMail.send({
-      from: process.env.SENDGRID_EMAIL,
-      to: email,
+      from:    process.env.SENDGRID_EMAIL,
+      to:      email,
       subject: "OTP Verification - FirstCry",
       html: `
         <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;
@@ -122,9 +124,7 @@ app.post("/sendVerifyOtp", async (req, res) => {
           <p>Hello <strong>${user.name}</strong>,</p>
           <p>Your OTP for email verification is:</p>
           <div style="font-size:36px;font-weight:bold;letter-spacing:10px;
-                      color:#e91e63;text-align:center;padding:20px 0;">
-            ${otp}
-          </div>
+                      color:#e91e63;text-align:center;padding:20px 0;">${otp}</div>
           <p style="color:#888;font-size:13px;">Valid for 10 minutes. Do not share with anyone.</p>
         </div>
       `
@@ -137,10 +137,13 @@ app.post("/sendVerifyOtp", async (req, res) => {
 });
 
 
+// ── Verify OTP ────────────────────────────────────────────────────────────────
 app.post("/verifyOtp", async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ success: false, message: "Email and OTP required" });
+    if (!email || !otp)
+      return res.status(400).json({ success: false, message: "Email and OTP required" });
+
     const user = await CustomerModel.findOne({ email });
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
@@ -159,14 +162,21 @@ app.post("/verifyOtp", async (req, res) => {
 });
 
 
+// ── Login ─────────────────────────────────────────────────────────────────────
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ success: false, message: "Email and password required" });
+    if (!email || !password)
+      return res.status(400).json({ success: false, message: "Email and password required" });
+
     const user = await CustomerModel.findOne({ email });
-    if (!user) return res.json({ success: false, message: "No account found. Please register first." });
-    if (!user.isVerified) return res.json({ success: false, message: "Email not verified. Please complete OTP verification." });
-    if (user.password !== password) return res.json({ success: false, message: "Wrong password. Please try again." });
+    if (!user)
+      return res.json({ success: false, message: "No account found. Please register first." });
+    if (!user.isVerified)
+      return res.json({ success: false, message: "Email not verified. Please complete OTP verification." });
+    if (user.password !== password)
+      return res.json({ success: false, message: "Wrong password. Please try again." });
+
     res.json({ success: true, message: "Login successful", user: { name: user.name, email: user.email } });
   } catch (err) {
     console.error("Login error:", err.message);
@@ -174,10 +184,25 @@ app.post("/login", async (req, res) => {
   }
 });
 
+
+// ── Admin Login ───────────────────────────────────────────────────────────────
+app.post("/admin/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD)
+      return res.json({ success: true, message: "Admin login successful" });
+    res.json({ success: false, message: "Invalid admin credentials" });
+  } catch (err) {
+    console.error("Admin login error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// ── Get Users (CustomerModel) ─────────────────────────────────────────────────
 app.get("/users", async (req, res) => {
   try {
     const users = await CustomerModel.find().sort({ createdAt: -1 });
-
     const usersWithOrders = await Promise.all(
       users.map(async (user) => {
         const orderCount = await Order.countDocuments({ email: user.email });
@@ -193,7 +218,6 @@ app.get("/users", async (req, res) => {
         };
       })
     );
-
     res.json({ success: true, users: usersWithOrders });
   } catch (err) {
     console.log("users error:", err.message);
@@ -201,6 +225,8 @@ app.get("/users", async (req, res) => {
   }
 });
 
+
+// ── Block / Unblock User ──────────────────────────────────────────────────────
 app.put("/users/block/:id", async (req, res) => {
   try {
     const user = await CustomerModel.findById(req.params.id);
@@ -212,7 +238,8 @@ app.put("/users/block/:id", async (req, res) => {
   }
 });
 
-// ── DELETE USER ──
+
+// ── Delete User ───────────────────────────────────────────────────────────────
 app.delete("/users/delete/:id", async (req, res) => {
   try {
     await CustomerModel.findByIdAndDelete(req.params.id);
@@ -223,20 +250,7 @@ app.delete("/users/delete/:id", async (req, res) => {
 });
 
 
-app.post("/admin/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-      return res.json({ success: true, message: "Admin login successful" });
-    }
-    res.json({ success: false, message: "Invalid admin credentials" });
-  } catch (err) {
-    console.error("Admin login error:", err.message);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
-
-
+// ── Add Product ───────────────────────────────────────────────────────────────
 app.post("/add-product", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "Image is required" });
@@ -249,12 +263,12 @@ app.post("/add-product", upload.single("image"), async (req, res) => {
     });
 
     const product = new ProductModel({
-      name: req.body.name,
-      category: req.body.category,
+      name:        req.body.name,
+      category:    req.body.category,
       description: req.body.description,
-      price: req.body.price,
-      quantity: req.body.quantity,
-      image: result.secure_url
+      price:       req.body.price,
+      quantity:    req.body.quantity,
+      image:       result.secure_url
     });
     await product.save();
     res.json({ message: "Product Added Successfully", product });
@@ -265,12 +279,14 @@ app.post("/add-product", upload.single("image"), async (req, res) => {
 });
 
 
+// ── Get All Products ──────────────────────────────────────────────────────────
 app.get("/product", async (req, res) => {
   const data = await ProductModel.find();
   res.json(data);
 });
 
 
+// ── Get Single Product ────────────────────────────────────────────────────────
 app.get("/product/:id", async (req, res) => {
   try {
     const product = await ProductModel.findById(req.params.id);
@@ -282,14 +298,15 @@ app.get("/product/:id", async (req, res) => {
 });
 
 
+// ── Update Product ────────────────────────────────────────────────────────────
 app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
   try {
     const updateData = {
-      name: req.body.name,
-      category: req.body.category,
+      name:        req.body.name,
+      category:    req.body.category,
       description: req.body.description,
-      price: req.body.price,
-      quantity: req.body.quantity,
+      price:       req.body.price,
+      quantity:    req.body.quantity,
     };
     if (req.file) {
       const result = await new Promise((resolve, reject) => {
@@ -310,12 +327,14 @@ app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
 });
 
 
+// ── Delete Product ────────────────────────────────────────────────────────────
 app.delete("/delete-product/:id", async (req, res) => {
   await ProductModel.findByIdAndDelete(req.params.id);
   res.json({ message: "Deleted" });
 });
 
 
+// ── Cart ──────────────────────────────────────────────────────────────────────
 app.post("/cart", async (req, res) => {
   const { name, price, image } = req.body;
   const existing = await Cart.findOne({ name });
@@ -352,6 +371,7 @@ app.delete("/cart/:id", async (req, res) => {
 });
 
 
+// ── Place Order ───────────────────────────────────────────────────────────────
 app.post("/place-order", async (req, res) => {
   const order = new Order(req.body);
   await order.save();
@@ -362,6 +382,8 @@ app.get("/order", async (req, res) => {
   res.json(await Order.find());
 });
 
+
+// ── COD Payment — update & send invoice ──────────────────────────────────────
 app.put("/update-payment/:orderId", async (req, res) => {
   try {
     const order = await Order.findByIdAndUpdate(
@@ -370,27 +392,12 @@ app.put("/update-payment/:orderId", async (req, res) => {
       { new: true }
     );
 
-    // ── Send GST Invoice ──
+    // ✅ Generate PDF and send via SendGrid
     const pdfBuffer = await generateInvoicePDF(order);
-    await transporter.sendMail({
-      from: process.env.SENDGRID_EMAIL,
-      to: order.email,
-      subject: `GST Invoice - Order #${String(order._id).slice(-6).toUpperCase()}`,
-      html: `<p>Dear <strong>${order.fullName}</strong>,</p>
-             <p>Your order has been placed successfully!</p>
-             <p>Please find your GST invoice attached.</p>
-             <p><strong>Total: ₹${order.total}</strong></p>
-             <p>Team FirstCry</p>`,
-      attachments: [{
-        filename: `Invoice_${String(order._id).slice(-6).toUpperCase()}.pdf`,
-        content: pdfBuffer,
-        contentType: "application/pdf"
-      }]
-    });
+    await sendInvoiceEmail(order, pdfBuffer);
 
-    console.log("Invoice sent to:", order.email);
-    res.json({ success: true });
-
+    console.log("✅ COD Invoice sent to:", order.email);
+    res.json({ success: true, message: "Invoice sent to " + order.email });
   } catch (err) {
     console.log("update-payment error:", err.message);
     res.status(500).json({ success: false, message: err.message });
@@ -398,22 +405,22 @@ app.put("/update-payment/:orderId", async (req, res) => {
 });
 
 
-
-
-
+// ── Create Razorpay Order ─────────────────────────────────────────────────────
 app.post("/create-razorpay-order", async (req, res) => {
   const order = await razorpay.orders.create({
-    amount: req.body.amount * 100,
+    amount:   req.body.amount * 100,
     currency: "INR"
   });
   res.json(order);
 });
 
+
+// ── Verify Razorpay Payment — update & send invoice ──────────────────────────
 app.post("/verify-payment", async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
 
-    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+    const sign    = razorpay_order_id + "|" + razorpay_payment_id;
     const expected = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(sign)
@@ -426,42 +433,26 @@ app.post("/verify-payment", async (req, res) => {
         { new: true }
       );
 
-      // ── Send GST Invoice ──
+      // ✅ Generate PDF and send via SendGrid
       const pdfBuffer = await generateInvoicePDF(order);
-      await transporter.sendMail({
-        from: process.env.SENDGRID_EMAIL,
-        to: order.email,
-        subject: `GST Invoice - Order #${String(order._id).slice(-6).toUpperCase()}`,
-        html: `<p>Dear <strong>${order.fullName}</strong>,</p>
-               <p>Payment received successfully!</p>
-               <p>Please find your GST invoice attached.</p>
-               <p><strong>Total: ₹${order.total}</strong></p>
-               <p>Team FirstCry</p>`,
-        attachments: [{
-          filename: `Invoice_${String(order._id).slice(-6).toUpperCase()}.pdf`,
-          content: pdfBuffer,
-          contentType: "application/pdf"
-        }]
-      });
+      await sendInvoiceEmail(order, pdfBuffer);
 
-      console.log("Invoice sent to:", order.email);
-      res.json({ success: true });
-
+      console.log("✅ Online Payment Invoice sent to:", order.email);
+      res.json({ success: true, message: "Payment verified & invoice sent!" });
     } else {
       res.json({ success: false, message: "Invalid signature" });
     }
-
   } catch (err) {
     console.log("verify-payment error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// GET orders by user email
+
+// ── My Orders (by email) ──────────────────────────────────────────────────────
 app.get("/my-orders/:email", async (req, res) => {
   try {
-    const { email } = req.params;
-    const orders = await Order.find({ email: email }).sort({ createdAt: -1 });
+    const orders = await Order.find({ email: req.params.email }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
     console.log("my-orders error:", err.message);
@@ -470,6 +461,7 @@ app.get("/my-orders/:email", async (req, res) => {
 });
 
 
+// ── Admin: Recent Orders ──────────────────────────────────────────────────────
 app.get("/admin/recent-orders", async (req, res) => {
   try {
     const orders = await Order.find().sort({ orderDate: -1 }).limit(50);
@@ -479,209 +471,26 @@ app.get("/admin/recent-orders", async (req, res) => {
   }
 });
 
+
+// ── Admin: Stats ──────────────────────────────────────────────────────────────
 app.get("/admin/stats", async (req, res) => {
   try {
     const products = await ProductModel.find();
-    const orders = await Order.find();
-    const users = await UserModel.find();
+    const orders   = await Order.find();
+    const users    = await UserModel.find();
     res.json({
       totalProducts: products.length,
-      totalOrders: orders.length,
-      totalUsers: users.length,
-      totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0)
+      totalOrders:   orders.length,
+      totalUsers:    users.length,
+      totalRevenue:  orders.reduce((sum, o) => sum + (o.total || 0), 0)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get("/users", async (req, res) => {
-  try {
-    const users = await UserModel.find().sort({ createdAt: -1 });
 
-    const usersWithOrders = await Promise.all(
-      users.map(async (user) => {
-        const orderCount = await Order.countDocuments({ email: user.email });
-        return {
-          _id:         user._id,
-          name:        user.name,
-          email:       user.email,
-          phone:       user.phone || "—",
-          isActive:    user.isActive,
-          joinedOn:    user.createdAt,
-          lastActive:  user.updatedAt,
-          totalOrders: orderCount,
-        };
-      })
-    );
-
-    res.json({ success: true, users: usersWithOrders });
-  } catch (err) {
-    console.log("users error:", err.message);
-    res.status(500).json({ success: false, message: "Error fetching users" });
-  }
-});
-
-
-app.put("/users/block/:id", async (req, res) => {
-  try {
-    const user = await UserModel.findById(req.params.id);
-    user.isActive = !user.isActive;
-    await user.save();
-    res.json({ success: true, isActive: user.isActive });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Error blocking user" });
-  }
-});
-
-
-app.delete("/users/delete/:id", async (req, res) => {
-  try {
-    await UserModel.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "User deleted" });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Error deleting user" });
-  }
-});
-
-
-// ── GENERATE & SEND GST INVOICE ──
-app.get("/generate-invoice/:orderId", async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.orderId);
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
-    }
-
-    // ── Create PDF ──
-    const doc = new PDFDocument({ margin: 50 });
-    const buffers = [];
-
-    doc.on("data", chunk => buffers.push(chunk));
-    doc.on("end", async () => {
-      const pdfBuffer = Buffer.concat(buffers);
-
-      // ── Send PDF to email ──
-      await transporter.sendMail({
-        from: process.env.SENDGRID_EMAIL,
-        to: order.email,
-        subject: `GST Invoice - Order #${String(order._id).slice(-6).toUpperCase()}`,
-        html: `
-          <p>Dear <strong>${order.fullName}</strong>,</p>
-          <p>Thank you for shopping with FirstCry!</p>
-          <p>Please find your GST invoice attached for Order 
-             <strong>#${String(order._id).slice(-6).toUpperCase()}</strong>.</p>
-          <p>Total Amount: <strong>₹${order.total}</strong></p>
-          <br/>
-          <p>Team FirstCry</p>
-        `,
-        attachments: [
-          {
-            filename: `Invoice_${String(order._id).slice(-6).toUpperCase()}.pdf`,
-            content: pdfBuffer,
-            contentType: "application/pdf"
-          }
-        ]
-      });
-
-      res.json({ success: true, message: "Invoice sent to " + order.email });
-    });
-
-    // ── PDF Content ──
-
-    // Header
-    doc.fontSize(20).fillColor("#6a0dad").text("FIRSTCRY", { align: "center" });
-    doc.fontSize(10).fillColor("#555").text("Online Baby & Kids Store", { align: "center" });
-    doc.moveDown();
-
-    // GST Invoice Title
-    doc.fontSize(16).fillColor("#000").text("GST INVOICE", { align: "center" });
-    doc.moveDown(0.5);
-
-    // Divider line
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown();
-
-    // Invoice details
-    doc.fontSize(10).fillColor("#333");
-    doc.text(`Invoice No  : #${String(order._id).slice(-6).toUpperCase()}`);
-    doc.text(`Order Date  : ${new Date(order.createdAt).toLocaleDateString("en-IN")}`);
-    doc.text(`Payment     : ${order.payment}`);
-    doc.text(`Order Status: ${order.orderStatus}`);
-    doc.moveDown();
-
-    // Customer details
-    doc.fontSize(12).fillColor("#6a0dad").text("Bill To:");
-    doc.fontSize(10).fillColor("#333");
-    doc.text(`Name    : ${order.fullName}`);
-    doc.text(`Email   : ${order.email}`);
-    doc.text(`Phone   : ${order.phone}`);
-    doc.text(`Address : ${order.address}, ${order.city}, ${order.state} - ${order.pincode}`);
-    doc.moveDown();
-
-    // Divider
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown(0.5);
-
-    // Items table header
-    doc.fontSize(11).fillColor("#fff")
-      .rect(50, doc.y, 500, 20).fill("#6a0dad");
-    doc.fillColor("#fff")
-      .text("Item Name",   55, doc.y - 16)
-      .text("Qty",        350, doc.y - 16)
-      .text("Price",      420, doc.y - 16)
-      .text("Subtotal",   480, doc.y - 16);
-    doc.moveDown(0.8);
-
-    // Items rows
-    doc.fontSize(10).fillColor("#333");
-    let y = doc.y;
-    order.items.forEach((item, i) => {
-      const subtotal = (item.price || 0) * (item.quantity || 1);
-      if (i % 2 === 0) {
-        doc.rect(50, y, 500, 20).fill("#f5f0ff");
-      }
-      doc.fillColor("#333")
-        .text(item.name,                          55, y + 5, { width: 280 })
-        .text(String(item.quantity || 1),        350, y + 5)
-        .text(`Rs.${item.price || 0}`,           420, y + 5)
-        .text(`Rs.${subtotal}`,                  480, y + 5);
-      y += 22;
-    });
-
-    doc.moveDown(order.items.length + 1);
-
-    // Divider
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown(0.5);
-
-    // GST Calculation (18% GST)
-    const baseAmount = Math.round(order.total / 1.18);
-    const gstAmount  = order.total - baseAmount;
-
-    doc.fontSize(10).fillColor("#333");
-    doc.text(`Base Amount (before GST) : Rs.${baseAmount}`, { align: "right" });
-    doc.text(`GST (18%)                : Rs.${gstAmount}`,  { align: "right" });
-    doc.fontSize(12).fillColor("#6a0dad")
-      .text(`Total Amount             : Rs.${order.total}`, { align: "right" });
-    doc.moveDown();
-
-    // Footer
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown(0.5);
-    doc.fontSize(9).fillColor("#888")
-      .text("Thank you for shopping with FirstCry!", { align: "center" });
-    doc.text("This is a computer-generated invoice and does not require a signature.", { align: "center" });
-
-    doc.end();
-
-  } catch (err) {
-    console.log("Invoice error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
+// ── Root ──────────────────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.send("Backend Running");
 });

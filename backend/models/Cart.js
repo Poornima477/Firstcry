@@ -4,7 +4,7 @@ const cartSchema = new mongoose.Schema({
   name: String,
   price: Number,
   image: String,
-  quantity: {        // ✅ also fixing typo
+  quantity: {        
     type: Number,
     default: 1
   }
