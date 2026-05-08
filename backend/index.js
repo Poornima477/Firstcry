@@ -354,7 +354,6 @@ app.get("/order", async (req, res) => {
   res.json(await Order.find());
 });
 
-
 app.put("/update-payment/:orderId", async (req, res) => {
   try {
     const order = await Order.findByIdAndUpdate(
@@ -363,11 +362,21 @@ app.put("/update-payment/:orderId", async (req, res) => {
       { new: true }
     );
 
-    const pdfBuffer = await generateInvoicePDF(order);
-    await sendInvoiceEmail(order, pdfBuffer);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
 
-    console.log("COD Invoice sent to:", order.email);
-    res.json({ success: true, message: "Invoice sent to " + order.email });
+    res.json({ success: true, message: "Order placed! Invoice will be sent to " + order.email });
+
+   
+    try {
+      const pdfBuffer = await generateInvoicePDF(order);
+      await sendInvoiceEmail(order, pdfBuffer);
+      console.log("COD Invoice sent to:", order.email);
+    } catch (invoiceErr) {
+      console.log(" Invoice email failed (order still placed):", invoiceErr.message);
+    }
+
   } catch (err) {
     console.log("update-payment error:", err.message);
     res.status(500).json({ success: false, message: err.message });
@@ -386,33 +395,42 @@ app.post("/verify-payment", async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
 
-    const sign    = razorpay_order_id + "|" + razorpay_payment_id;
+    const sign     = razorpay_order_id + "|" + razorpay_payment_id;
     const expected = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(sign)
       .digest("hex");
 
-    if (expected === razorpay_signature) {
-      const order = await Order.findByIdAndUpdate(
-        orderId,
-        { paymentStatus: "Paid", payment: "online" },
-        { new: true }
-      );
+    if (expected !== razorpay_signature) {
+      return res.json({ success: false, message: "Invalid signature" });
+    }
 
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { paymentStatus: "Paid", payment: "online" },
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    
+    res.json({ success: true, message: "Payment verified!" });
+
+    try {
       const pdfBuffer = await generateInvoicePDF(order);
       await sendInvoiceEmail(order, pdfBuffer);
-
-      console.log(" Online Payment Invoice sent to:", order.email);
-      res.json({ success: true, message: "Payment verified & invoice sent!" });
-    } else {
-      res.json({ success: false, message: "Invalid signature" });
+      console.log(" Invoice sent to:", order.email);
+    } catch (invoiceErr) {
+      console.log("Invoice email failed (payment still success):", invoiceErr.message);
     }
+
   } catch (err) {
     console.log("verify-payment error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 
 app.get("/my-orders/:email", async (req, res) => {
   try {

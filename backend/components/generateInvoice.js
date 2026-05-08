@@ -1,7 +1,6 @@
 import PDFDocument from "pdfkit";
 import sgMail from "@sendgrid/mail";
 
-// ── Generate PDF Buffer ──────────────────────────────────────────────────────
 export function generateInvoicePDF(order) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: "A4" });
@@ -14,21 +13,18 @@ export function generateInvoicePDF(order) {
     const purple = "#6a0dad";
     const light  = "#f5f0ff";
 
-    // ── BRAND ──
+  
     doc.fontSize(26).font("Helvetica-Bold").fillColor(purple)
        .text("FIRSTCRY", { align: "center" });
     doc.fontSize(10).font("Helvetica").fillColor("#555")
        .text("Online Baby & Kids Store", { align: "center" });
-    doc.moveDown(0.5);
 
-    // ── TITLE ──
     doc.fontSize(14).font("Helvetica-Bold").fillColor("#000")
        .text("GST TAX INVOICE", { align: "center" });
     doc.moveDown(0.5);
     doc.moveTo(50, doc.y).lineTo(545, doc.y).lineWidth(1).strokeColor(purple).stroke();
     doc.moveDown(0.8);
 
-    // ── Invoice Info (left) + Seller Info (right) ──
     const infoTop = doc.y;
     doc.font("Helvetica-Bold").fontSize(10).fillColor(purple)
        .text("Invoice Details", 50, infoTop);
@@ -50,7 +46,7 @@ export function generateInvoicePDF(order) {
     doc.moveTo(50, doc.y).lineTo(545, doc.y).lineWidth(0.5).strokeColor("#ccc").stroke();
     doc.moveDown(0.8);
 
-    // ── Bill To ──
+  
     const billTop = doc.y;
     doc.font("Helvetica-Bold").fontSize(10).fillColor(purple)
        .text("Bill To:", 50, billTop);
@@ -65,7 +61,7 @@ export function generateInvoicePDF(order) {
     doc.moveTo(50, doc.y).lineTo(545, doc.y).lineWidth(0.5).strokeColor("#ccc").stroke();
     doc.moveDown(0.8);
 
-    // ── Table Header ──
+   
     const tableHeaderY = doc.y;
     doc.rect(50, tableHeaderY, 495, 22).fill(purple);
     doc.font("Helvetica-Bold").fontSize(9).fillColor("#fff")
@@ -77,7 +73,7 @@ export function generateInvoicePDF(order) {
        .text("Total",     490,  tableHeaderY + 6, { width: 55  });
     doc.moveDown(1.5);
 
-    // ── Table Rows ──
+  
     let y = doc.y;
     let taxableTotal = 0;
     let cgstTotal    = 0;
@@ -113,7 +109,7 @@ export function generateInvoicePDF(order) {
     doc.moveTo(50, doc.y).lineTo(545, doc.y).lineWidth(0.5).strokeColor("#ccc").stroke();
     doc.moveDown(0.8);
 
-    // ── GST Summary ──
+   
     const sx = 310;
     doc.font("Helvetica").fontSize(9).fillColor("#333")
        .text("Taxable Amount (excl. GST):", sx, doc.y, { width: 170 })
@@ -133,7 +129,7 @@ export function generateInvoicePDF(order) {
 
     doc.moveDown(3);
 
-    // ── Footer ──
+ 
     doc.moveTo(50, doc.y).lineTo(545, doc.y).lineWidth(0.5).strokeColor(purple).stroke();
     doc.moveDown(0.5);
     doc.font("Helvetica").fontSize(8).fillColor("#888")
@@ -145,7 +141,7 @@ export function generateInvoicePDF(order) {
 }
 
 
-// ── Send Invoice Email via SendGrid ──────────────────────────────────────────
+
 export async function sendInvoiceEmail(order, pdfBuffer) {
   const invoiceNo = String(order._id).slice(-6).toUpperCase();
 
@@ -185,5 +181,5 @@ export async function sendInvoiceEmail(order, pdfBuffer) {
     }]
   });
 
-  console.log("✅ Invoice email sent to:", order.email);
+  console.log(" Invoice email sent to:", order.email);
 }
