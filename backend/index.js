@@ -48,17 +48,13 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
-
-// ── Debug: check env keys ─────────────────────────────────────────────────────
 app.get("/check-keys", (req, res) => {
   res.json({
-    key_id:     process.env.RAZORPAY_KEY_ID    || "❌ MISSING",
-    key_secret: process.env.RAZORPAY_KEY_SECRET ? "✅ Secret exists" : "❌ MISSING"
+    key_id:     process.env.RAZORPAY_KEY_ID    || " MISSING",
+    key_secret: process.env.RAZORPAY_KEY_SECRET ? "Secret exists" : "MISSING"
   });
 });
 
-
-// ── Test Email ────────────────────────────────────────────────────────────────
 app.get("/test-email", async (req, res) => {
   try {
     await sgMail.send({
@@ -74,8 +70,6 @@ app.get("/test-email", async (req, res) => {
   }
 });
 
-
-// ── Register ──────────────────────────────────────────────────────────────────
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -99,8 +93,6 @@ app.post("/register", async (req, res) => {
   }
 });
 
-
-// ── Send OTP ──────────────────────────────────────────────────────────────────
 app.post("/sendVerifyOtp", async (req, res) => {
   try {
     const { email } = req.body;
@@ -136,8 +128,6 @@ app.post("/sendVerifyOtp", async (req, res) => {
   }
 });
 
-
-// ── Verify OTP ────────────────────────────────────────────────────────────────
 app.post("/verifyOtp", async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -161,8 +151,6 @@ app.post("/verifyOtp", async (req, res) => {
   }
 });
 
-
-// ── Login ─────────────────────────────────────────────────────────────────────
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -184,8 +172,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-
-// ── Admin Login ───────────────────────────────────────────────────────────────
 app.post("/admin/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -198,8 +184,6 @@ app.post("/admin/login", async (req, res) => {
   }
 });
 
-
-// ── Get Users (CustomerModel) ─────────────────────────────────────────────────
 app.get("/users", async (req, res) => {
   try {
     const users = await CustomerModel.find().sort({ createdAt: -1 });
@@ -226,7 +210,6 @@ app.get("/users", async (req, res) => {
 });
 
 
-// ── Block / Unblock User ──────────────────────────────────────────────────────
 app.put("/users/block/:id", async (req, res) => {
   try {
     const user = await CustomerModel.findById(req.params.id);
@@ -238,8 +221,6 @@ app.put("/users/block/:id", async (req, res) => {
   }
 });
 
-
-// ── Delete User ───────────────────────────────────────────────────────────────
 app.delete("/users/delete/:id", async (req, res) => {
   try {
     await CustomerModel.findByIdAndDelete(req.params.id);
@@ -249,8 +230,6 @@ app.delete("/users/delete/:id", async (req, res) => {
   }
 });
 
-
-// ── Add Product ───────────────────────────────────────────────────────────────
 app.post("/add-product", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "Image is required" });
@@ -279,14 +258,12 @@ app.post("/add-product", upload.single("image"), async (req, res) => {
 });
 
 
-// ── Get All Products ──────────────────────────────────────────────────────────
 app.get("/product", async (req, res) => {
   const data = await ProductModel.find();
   res.json(data);
 });
 
 
-// ── Get Single Product ────────────────────────────────────────────────────────
 app.get("/product/:id", async (req, res) => {
   try {
     const product = await ProductModel.findById(req.params.id);
@@ -297,8 +274,6 @@ app.get("/product/:id", async (req, res) => {
   }
 });
 
-
-// ── Update Product ────────────────────────────────────────────────────────────
 app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
   try {
     const updateData = {
@@ -327,14 +302,12 @@ app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
 });
 
 
-// ── Delete Product ────────────────────────────────────────────────────────────
 app.delete("/delete-product/:id", async (req, res) => {
   await ProductModel.findByIdAndDelete(req.params.id);
   res.json({ message: "Deleted" });
 });
 
 
-// ── Cart ──────────────────────────────────────────────────────────────────────
 app.post("/cart", async (req, res) => {
   const { name, price, image } = req.body;
   const existing = await Cart.findOne({ name });
@@ -371,7 +344,6 @@ app.delete("/cart/:id", async (req, res) => {
 });
 
 
-// ── Place Order ───────────────────────────────────────────────────────────────
 app.post("/place-order", async (req, res) => {
   const order = new Order(req.body);
   await order.save();
@@ -383,7 +355,6 @@ app.get("/order", async (req, res) => {
 });
 
 
-// ── COD Payment — update & send invoice ──────────────────────────────────────
 app.put("/update-payment/:orderId", async (req, res) => {
   try {
     const order = await Order.findByIdAndUpdate(
@@ -392,11 +363,10 @@ app.put("/update-payment/:orderId", async (req, res) => {
       { new: true }
     );
 
-    // ✅ Generate PDF and send via SendGrid
     const pdfBuffer = await generateInvoicePDF(order);
     await sendInvoiceEmail(order, pdfBuffer);
 
-    console.log("✅ COD Invoice sent to:", order.email);
+    console.log("COD Invoice sent to:", order.email);
     res.json({ success: true, message: "Invoice sent to " + order.email });
   } catch (err) {
     console.log("update-payment error:", err.message);
@@ -404,8 +374,6 @@ app.put("/update-payment/:orderId", async (req, res) => {
   }
 });
 
-
-// ── Create Razorpay Order ─────────────────────────────────────────────────────
 app.post("/create-razorpay-order", async (req, res) => {
   const order = await razorpay.orders.create({
     amount:   req.body.amount * 100,
@@ -414,8 +382,6 @@ app.post("/create-razorpay-order", async (req, res) => {
   res.json(order);
 });
 
-
-// ── Verify Razorpay Payment — update & send invoice ──────────────────────────
 app.post("/verify-payment", async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
@@ -433,11 +399,10 @@ app.post("/verify-payment", async (req, res) => {
         { new: true }
       );
 
-      // ✅ Generate PDF and send via SendGrid
       const pdfBuffer = await generateInvoicePDF(order);
       await sendInvoiceEmail(order, pdfBuffer);
 
-      console.log("✅ Online Payment Invoice sent to:", order.email);
+      console.log(" Online Payment Invoice sent to:", order.email);
       res.json({ success: true, message: "Payment verified & invoice sent!" });
     } else {
       res.json({ success: false, message: "Invalid signature" });
@@ -449,7 +414,6 @@ app.post("/verify-payment", async (req, res) => {
 });
 
 
-// ── My Orders (by email) ──────────────────────────────────────────────────────
 app.get("/my-orders/:email", async (req, res) => {
   try {
     const orders = await Order.find({ email: req.params.email }).sort({ createdAt: -1 });
@@ -461,7 +425,6 @@ app.get("/my-orders/:email", async (req, res) => {
 });
 
 
-// ── Admin: Recent Orders ──────────────────────────────────────────────────────
 app.get("/admin/recent-orders", async (req, res) => {
   try {
     const orders = await Order.find().sort({ orderDate: -1 }).limit(50);
@@ -472,7 +435,6 @@ app.get("/admin/recent-orders", async (req, res) => {
 });
 
 
-// ── Admin: Stats ──────────────────────────────────────────────────────────────
 app.get("/admin/stats", async (req, res) => {
   try {
     const products = await ProductModel.find();
@@ -490,7 +452,7 @@ app.get("/admin/stats", async (req, res) => {
 });
 
 
-// ── Root ──────────────────────────────────────────────────────────────────────
+
 app.get("/", (req, res) => {
   res.send("Backend Running");
 });
