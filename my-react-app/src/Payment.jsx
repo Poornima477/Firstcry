@@ -8,30 +8,28 @@ function Payment() {
   const navigate = useNavigate();
 
   const [method, setMethod] = useState("cod");
-  const [total, setTotal] = useState(0);
+  const [total, setTotal]   = useState(0);
   const [loading, setLoading] = useState(false);
 
   const orderIdRef = useRef("");
-
+  const emailRef   = useRef("");
   useEffect(() => {
     if (location.state?.orderId && location.state?.total) {
       orderIdRef.current = location.state.orderId;
+      emailRef.current   = location.state.email || "";
       setTotal(location.state.total);
     } else {
       navigate("/checkout");
     }
   }, [location.state]);
 
- 
+  
   const loadRazorpay = () => {
     return new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
+      if (window.Razorpay) { resolve(true); return; }
+      const script   = document.createElement("script");
+      script.src     = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload  = () => resolve(true);
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
     });
@@ -42,6 +40,7 @@ function Payment() {
       setLoading(true);
 
       const currentOrderId = orderIdRef.current;
+      const currentEmail   = emailRef.current;
 
       if (!currentOrderId) {
         alert("Order not found. Please go back and try again.");
@@ -49,18 +48,25 @@ function Payment() {
         return;
       }
 
-      
+
       if (method === "cod") {
         await axios.put(
           `https://firstcry-backend1.onrender.com/update-payment/${currentOrderId}`,
           { paymentMethod: "cod", status: "pending" }
         );
         setLoading(false);
-        navigate("/OrderSuccess");
+       
+        navigate("/OrderSuccess", {
+          state: {
+            orderId:       currentOrderId,
+            email:         currentEmail,
+            paymentMethod: "cod",
+          },
+        });
         return;
       }
 
-      
+     
       if (!total || total <= 0) {
         alert("Invalid amount.");
         setLoading(false);
@@ -81,7 +87,6 @@ function Payment() {
       );
 
       const razorpayOrder = res.data;
-
       if (!razorpayOrder || !razorpayOrder.id) {
         alert("Failed to create payment order. Try again.");
         setLoading(false);
@@ -89,54 +94,46 @@ function Payment() {
       }
 
       const options = {
-        key: "rzp_test_Sl9YxuH6BbxZEs",
-        amount: razorpayOrder.amount,
-        currency: "INR",
-        order_id: razorpayOrder.id,
-        name: "FirstCry",
+        key:         "rzp_test_Sl9YxuH6BbxZEs",
+        amount:      razorpayOrder.amount,
+        currency:    "INR",
+        order_id:    razorpayOrder.id,
+        name:        "FirstCry",
         description: "Order Payment",
 
-     
+       
         handler: async function (response) {
           try {
             console.log("Razorpay response:", response);
             console.log("Sending orderId:", currentOrderId);
 
-            // Step 1: Verify payment signature
             const verifyRes = await axios.post(
               "https://firstcry-backend1.onrender.com/verify-payment",
               {
-                razorpay_order_id: response.razorpay_order_id,
+                razorpay_order_id:   response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                orderId: currentOrderId,
+                razorpay_signature:  response.razorpay_signature,
+                orderId:             currentOrderId,
               }
             );
 
             console.log("Verify response:", verifyRes.data);
 
             if (verifyRes.data.success) {
-            
-              await axios.put(
-                `https://firstcry-backend1.onrender.com/update-payment/${currentOrderId}`,
-                {
+              
+              navigate("/OrderSuccess", {
+                state: {
+                  orderId:       currentOrderId,
+                  email:         currentEmail,
                   paymentMethod: "online",
-                  status: "paid",
-                  paymentId: response.razorpay_payment_id, 
-                }
-              );
-
-            
-              navigate("/OrderSuccess");
+                },
+              });
             } else {
               alert("Payment verification failed: " + verifyRes.data.message);
             }
           } catch (err) {
             console.log("Verify error:", err.response?.data || err.message);
-            alert(
-              "Verification error: " +
-                (err.response?.data?.message || err.message)
-            );
+            alert("Verification error: " + (err.response?.data?.message || err.message));
           } finally {
             setLoading(false);
           }
@@ -144,12 +141,10 @@ function Payment() {
 
         prefill: {
           contact: "",
-          email: "",
+          email:   currentEmail,
         },
 
-        theme: {
-          color: "#e91e63",
-        },
+        theme: { color: "#e91e63" },
       };
 
       const rzp = new window.Razorpay(options);
@@ -162,11 +157,10 @@ function Payment() {
 
       rzp.open();
       setLoading(false);
+
     } catch (err) {
       console.log("Payment error:", err.response?.data || err.message);
-      alert(
-        "Payment error: " + (err.response?.data?.message || err.message)
-      );
+      alert("Payment error: " + (err.response?.data?.message || err.message));
       setLoading(false);
     }
   };
@@ -195,11 +189,7 @@ function Payment() {
           Online Payment
         </label>
 
-        <button
-          className="pay-btn"
-          onClick={handlePayment}
-          disabled={loading}
-        >
+        <button className="pay-btn" onClick={handlePayment} disabled={loading}>
           {loading ? "Processing..." : "Confirm & Pay"}
         </button>
       </div>

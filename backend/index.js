@@ -17,12 +17,12 @@ import { generateInvoicePDF, sendInvoiceEmail } from "./components/generateInvoi
 
 dotenv.config();
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 3001;
 
 const corsOptions = {
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  origin:         "*",
+  methods:        ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 app.use(cors(corsOptions));
@@ -36,22 +36,22 @@ mongoose.connect(process.env.MONGO_URI)
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
+  api_key:    process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload  = multer({ storage });
 
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
+  key_id:     process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
 app.get("/check-keys", (req, res) => {
   res.json({
-    key_id:     process.env.RAZORPAY_KEY_ID    || " MISSING",
-    key_secret: process.env.RAZORPAY_KEY_SECRET ? "Secret exists" : "MISSING"
+    key_id:     process.env.RAZORPAY_KEY_ID     || "MISSING",
+    key_secret: process.env.RAZORPAY_KEY_SECRET  ? "Secret exists" : "MISSING"
   });
 });
 
@@ -69,6 +69,7 @@ app.get("/test-email", async (req, res) => {
     res.json({ success: false, error: err.message, details: err?.response?.body });
   }
 });
+
 
 app.post("/register", async (req, res) => {
   try {
@@ -102,7 +103,7 @@ app.post("/sendVerifyOtp", async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: "User not found. Please register first." });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.otp = otp;
+    user.otp  = otp;
     await user.save();
 
     await sgMail.send({
@@ -139,7 +140,7 @@ app.post("/verifyOtp", async (req, res) => {
 
     if (String(user.otp) === String(otp.trim())) {
       user.isVerified = true;
-      user.otp = null;
+      user.otp        = null;
       await user.save();
       res.json({ success: true, message: "Email verified! Registration complete." });
     } else {
@@ -184,6 +185,7 @@ app.post("/admin/login", async (req, res) => {
   }
 });
 
+
 app.get("/users", async (req, res) => {
   try {
     const users = await CustomerModel.find().sort({ createdAt: -1 });
@@ -209,10 +211,9 @@ app.get("/users", async (req, res) => {
   }
 });
 
-
 app.put("/users/block/:id", async (req, res) => {
   try {
-    const user = await CustomerModel.findById(req.params.id);
+    const user    = await CustomerModel.findById(req.params.id);
     user.isActive = !user.isActive;
     await user.save();
     res.json({ success: true, isActive: user.isActive });
@@ -229,6 +230,8 @@ app.delete("/users/delete/:id", async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
 
 app.post("/add-product", upload.single("image"), async (req, res) => {
   try {
@@ -257,12 +260,10 @@ app.post("/add-product", upload.single("image"), async (req, res) => {
   }
 });
 
-
 app.get("/product", async (req, res) => {
   const data = await ProductModel.find();
   res.json(data);
 });
-
 
 app.get("/product/:id", async (req, res) => {
   try {
@@ -301,11 +302,11 @@ app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
   }
 });
 
-
 app.delete("/delete-product/:id", async (req, res) => {
   await ProductModel.findByIdAndDelete(req.params.id);
   res.json({ message: "Deleted" });
 });
+
 
 
 app.post("/cart", async (req, res) => {
@@ -344,6 +345,7 @@ app.delete("/cart/:id", async (req, res) => {
 });
 
 
+
 app.post("/place-order", async (req, res) => {
   const order = new Order(req.body);
   await order.save();
@@ -354,11 +356,18 @@ app.get("/order", async (req, res) => {
   res.json(await Order.find());
 });
 
+
 app.put("/update-payment/:orderId", async (req, res) => {
   try {
+    const { paymentMethod, status } = req.body;
+
+    // Update order in DB
     const order = await Order.findByIdAndUpdate(
       req.params.orderId,
-      { paymentStatus: "Pending", payment: "cod" },
+      {
+        paymentStatus: status === "paid" ? "Paid" : "Pending",
+        payment:       paymentMethod || "cod",
+      },
       { new: true }
     );
 
@@ -366,15 +375,18 @@ app.put("/update-payment/:orderId", async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    res.json({ success: true, message: "Order placed! Invoice will be sent to " + order.email });
+    res.json({
+      success: true,
+      message: "Order placed! Invoice will be sent to " + order.email,
+    });
 
-   
+  
     try {
       const pdfBuffer = await generateInvoicePDF(order);
       await sendInvoiceEmail(order, pdfBuffer);
-      console.log("COD Invoice sent to:", order.email);
+      console.log("Invoice sent to:", order.email);
     } catch (invoiceErr) {
-      console.log(" Invoice email failed (order still placed):", invoiceErr.message);
+      console.log("Invoice email failed (order still placed):", invoiceErr.message);
     }
 
   } catch (err) {
@@ -383,19 +395,26 @@ app.put("/update-payment/:orderId", async (req, res) => {
   }
 });
 
+
 app.post("/create-razorpay-order", async (req, res) => {
-  const order = await razorpay.orders.create({
-    amount:   req.body.amount * 100,
-    currency: "INR"
-  });
-  res.json(order);
+  try {
+    const order = await razorpay.orders.create({
+      amount:   req.body.amount * 100,
+      currency: "INR"
+    });
+    res.json(order);
+  } catch (err) {
+    console.log("create-razorpay-order error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 app.post("/verify-payment", async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
 
-    const sign     = razorpay_order_id + "|" + razorpay_payment_id;
+   
+    const sign    = razorpay_order_id + "|" + razorpay_payment_id;
     const expected = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(sign)
@@ -405,9 +424,14 @@ app.post("/verify-payment", async (req, res) => {
       return res.json({ success: false, message: "Invalid signature" });
     }
 
+   
     const order = await Order.findByIdAndUpdate(
       orderId,
-      { paymentStatus: "Paid", payment: "online" },
+      {
+        paymentStatus: "Paid",
+        payment:       "online",
+        paymentId:     razorpay_payment_id, 
+      },
       { new: true }
     );
 
@@ -415,13 +439,12 @@ app.post("/verify-payment", async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    
     res.json({ success: true, message: "Payment verified!" });
 
     try {
       const pdfBuffer = await generateInvoicePDF(order);
       await sendInvoiceEmail(order, pdfBuffer);
-      console.log(" Invoice sent to:", order.email);
+      console.log("Invoice sent to:", order.email);
     } catch (invoiceErr) {
       console.log("Invoice email failed (payment still success):", invoiceErr.message);
     }
@@ -431,6 +454,8 @@ app.post("/verify-payment", async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
 
 app.get("/my-orders/:email", async (req, res) => {
   try {
@@ -442,7 +467,6 @@ app.get("/my-orders/:email", async (req, res) => {
   }
 });
 
-
 app.get("/admin/recent-orders", async (req, res) => {
   try {
     const orders = await Order.find().sort({ orderDate: -1 }).limit(50);
@@ -451,7 +475,6 @@ app.get("/admin/recent-orders", async (req, res) => {
     res.status(500).json({ message: "Error fetching recent orders" });
   }
 });
-
 
 app.get("/admin/stats", async (req, res) => {
   try {
