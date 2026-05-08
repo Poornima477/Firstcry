@@ -48,10 +48,12 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
+
+
 app.get("/check-keys", (req, res) => {
   res.json({
-    key_id:     process.env.RAZORPAY_KEY_ID     || "MISSING",
-    key_secret: process.env.RAZORPAY_KEY_SECRET  ? "Secret exists" : "MISSING"
+    key_id:     process.env.RAZORPAY_KEY_ID    || "MISSING",
+    key_secret: process.env.RAZORPAY_KEY_SECRET ? "Secret exists" : "MISSING"
   });
 });
 
@@ -185,7 +187,6 @@ app.post("/admin/login", async (req, res) => {
   }
 });
 
-
 app.get("/users", async (req, res) => {
   try {
     const users = await CustomerModel.find().sort({ createdAt: -1 });
@@ -206,7 +207,6 @@ app.get("/users", async (req, res) => {
     );
     res.json({ success: true, users: usersWithOrders });
   } catch (err) {
-    console.log("users error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -236,14 +236,12 @@ app.delete("/users/delete/:id", async (req, res) => {
 app.post("/add-product", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "Image is required" });
-
     const result = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         { resource_type: "image" },
         (error, result) => { if (error) reject(error); else resolve(result); }
       ).end(req.file.buffer);
     });
-
     const product = new ProductModel({
       name:        req.body.name,
       category:    req.body.category,
@@ -255,14 +253,12 @@ app.post("/add-product", upload.single("image"), async (req, res) => {
     await product.save();
     res.json({ message: "Product Added Successfully", product });
   } catch (err) {
-    console.log("ERROR:", err);
     res.status(500).json({ message: "Error adding product" });
   }
 });
 
 app.get("/product", async (req, res) => {
-  const data = await ProductModel.find();
-  res.json(data);
+  res.json(await ProductModel.find());
 });
 
 app.get("/product/:id", async (req, res) => {
@@ -278,11 +274,8 @@ app.get("/product/:id", async (req, res) => {
 app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
   try {
     const updateData = {
-      name:        req.body.name,
-      category:    req.body.category,
-      description: req.body.description,
-      price:       req.body.price,
-      quantity:    req.body.quantity,
+      name: req.body.name, category: req.body.category,
+      description: req.body.description, price: req.body.price, quantity: req.body.quantity,
     };
     if (req.file) {
       const result = await new Promise((resolve, reject) => {
@@ -297,7 +290,6 @@ app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
     if (!updated) return res.status(404).json({ message: "Product not found" });
     res.json({ message: "Product Updated Successfully", product: updated });
   } catch (err) {
-    console.error("Update error:", err);
     res.status(500).json({ message: "Error updating product" });
   }
 });
@@ -312,39 +304,23 @@ app.delete("/delete-product/:id", async (req, res) => {
 app.post("/cart", async (req, res) => {
   const { name, price, image } = req.body;
   const existing = await Cart.findOne({ name });
-  if (existing) {
-    existing.quantity += 1;
-    await existing.save();
-    return res.json(existing);
-  }
+  if (existing) { existing.quantity += 1; await existing.save(); return res.json(existing); }
   const item = new Cart({ name, price, image, quantity: 1 });
   await item.save();
   res.json(item);
 });
 
-app.get("/cart", async (req, res) => {
-  res.json(await Cart.find());
-});
+app.get("/cart",        async (req, res) => { res.json(await Cart.find()); });
+app.delete("/cart/:id", async (req, res) => { await Cart.findByIdAndDelete(req.params.id); res.json({ message: "Removed from cart" }); });
 
 app.put("/cart/:id", async (req, res) => {
   try {
-    const updated = await Cart.findByIdAndUpdate(
-      req.params.id,
-      { quantity: req.body.quantity },
-      { new: true }
-    );
+    const updated = await Cart.findByIdAndUpdate(req.params.id, { quantity: req.body.quantity }, { new: true });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: "Error updating cart" });
   }
 });
-
-app.delete("/cart/:id", async (req, res) => {
-  await Cart.findByIdAndDelete(req.params.id);
-  res.json({ message: "Removed from cart" });
-});
-
-
 
 app.post("/place-order", async (req, res) => {
   const order = new Order(req.body);
@@ -356,18 +332,23 @@ app.get("/order", async (req, res) => {
   res.json(await Order.find());
 });
 
-
 app.put("/update-payment/:orderId", async (req, res) => {
   try {
-    const { paymentMethod, status } = req.body;
+    const { paymentMethod, status, paymentId } = req.body;
 
-    // Update order in DB
+    const updateFields = {
+      payment:       paymentMethod || "cod",
+      paymentStatus: status === "paid" ? "Paid" : "Pending",
+    };
+
+    
+    if (paymentId) {
+      updateFields.paymentId = paymentId;
+    }
+
     const order = await Order.findByIdAndUpdate(
       req.params.orderId,
-      {
-        paymentStatus: status === "paid" ? "Paid" : "Pending",
-        payment:       paymentMethod || "cod",
-      },
+      updateFields,
       { new: true }
     );
 
@@ -375,18 +356,19 @@ app.put("/update-payment/:orderId", async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
+ 
     res.json({
       success: true,
-      message: "Order placed! Invoice will be sent to " + order.email,
+      message: "Order updated! Invoice will be sent to " + order.email,
     });
 
-  
+   
     try {
       const pdfBuffer = await generateInvoicePDF(order);
       await sendInvoiceEmail(order, pdfBuffer);
       console.log("Invoice sent to:", order.email);
     } catch (invoiceErr) {
-      console.log("Invoice email failed (order still placed):", invoiceErr.message);
+      console.log(" Invoice email failed (order still placed):", invoiceErr.message);
     }
 
   } catch (err) {
@@ -394,6 +376,7 @@ app.put("/update-payment/:orderId", async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 
 
 app.post("/create-razorpay-order", async (req, res) => {
@@ -409,12 +392,12 @@ app.post("/create-razorpay-order", async (req, res) => {
   }
 });
 
+
 app.post("/verify-payment", async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
 
-   
-    const sign    = razorpay_order_id + "|" + razorpay_payment_id;
+    const sign     = razorpay_order_id + "|" + razorpay_payment_id;
     const expected = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(sign)
@@ -424,20 +407,13 @@ app.post("/verify-payment", async (req, res) => {
       return res.json({ success: false, message: "Invalid signature" });
     }
 
-   
     const order = await Order.findByIdAndUpdate(
       orderId,
-      {
-        paymentStatus: "Paid",
-        payment:       "online",
-        paymentId:     razorpay_payment_id, 
-      },
+      { paymentStatus: "Paid", payment: "online", paymentId: razorpay_payment_id },
       { new: true }
     );
 
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
     res.json({ success: true, message: "Payment verified!" });
 
@@ -446,15 +422,13 @@ app.post("/verify-payment", async (req, res) => {
       await sendInvoiceEmail(order, pdfBuffer);
       console.log("Invoice sent to:", order.email);
     } catch (invoiceErr) {
-      console.log("Invoice email failed (payment still success):", invoiceErr.message);
+      console.log("Invoice email failed:", invoiceErr.message);
     }
 
   } catch (err) {
-    console.log("verify-payment error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 
 
 app.get("/my-orders/:email", async (req, res) => {
@@ -462,7 +436,6 @@ app.get("/my-orders/:email", async (req, res) => {
     const orders = await Order.find({ email: req.params.email }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
-    console.log("my-orders error:", err.message);
     res.status(500).json({ message: "Error fetching orders" });
   }
 });
@@ -492,12 +465,6 @@ app.get("/admin/stats", async (req, res) => {
   }
 });
 
+app.get("/", (req, res) => res.send("Backend Running"));
 
-
-app.get("/", (req, res) => {
-  res.send("Backend Running");
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
