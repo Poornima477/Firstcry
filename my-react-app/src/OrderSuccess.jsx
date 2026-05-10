@@ -8,25 +8,20 @@ function OrderSuccess() {
 
   const orderId       = location.state?.orderId;
   const email         = location.state?.email;
-  const paymentMethod = location.state?.paymentMethod; // "cod" or "online"
+  const paymentMethod = location.state?.paymentMethod;
 
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-   
     setTimeout(() => setShow(true), 100);
-
-    
-    if (!orderId) {
-      navigate("/");
-    }
+    if (!orderId) navigate("/");
   }, []);
 
   return (
     <div className="success-container">
       <div className={`success-box ${show ? "show" : ""}`}>
 
-       }
+        {/* Checkmark */}
         <div className="checkmark-circle">
           <div className="checkmark">✓</div>
         </div>
@@ -37,17 +32,16 @@ function OrderSuccess() {
           Order ID: <strong>{orderId}</strong>
         </p>
 
-      
+        {/* Payment Badge */}
         <div className={`payment-badge ${paymentMethod === "online" ? "online" : "cod"}`}>
-          {paymentMethod === "online" ? "Paid Online" : "Cash on Delivery"}
+          {paymentMethod === "online" ? "✅ Paid Online" : "📦 Cash on Delivery"}
         </div>
 
-       
+        {/* Invoice email message */}
         {email && (
           <div className="invoice-msg">
-            <span className="mail-icon"></span>
             <p>
-              Invoice has been sent to<br />
+              📧 GST Invoice has been sent to<br />
               <strong>{email}</strong>
             </p>
           </div>
@@ -58,13 +52,14 @@ function OrderSuccess() {
         </p>
 
         <div className="success-actions">
-          <button className="btn-orders" onClick={() => navigate("/my-orders")}>
+          <button className="btn-orders" onClick={() => navigate("/Userpanel")}>
             View My Orders
           </button>
           <button className="btn-home" onClick={() => navigate("/")}>
             Continue Shopping
           </button>
         </div>
+
       </div>
     </div>
   );
