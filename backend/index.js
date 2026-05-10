@@ -14,7 +14,6 @@ import Cart from "./models/Cart.js";
 import Order from "./models/Order.js";
 import UserModel from "./models/User.js";
 import { generateInvoicePDF, sendInvoiceEmail } from "./components/generateInvoice.js";
-import PDFDocument from "pdfkit";
 
 dotenv.config();
 
@@ -49,8 +48,9 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
-
-
+// ===============================
+// TEST ROUTES
+// ===============================
 app.get("/check-keys", (req, res) => {
   res.json({
     key_id:     process.env.RAZORPAY_KEY_ID    || "MISSING",
@@ -73,7 +73,9 @@ app.get("/test-email", async (req, res) => {
   }
 });
 
-
+// ===============================
+// AUTH ROUTES
+// ===============================
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -188,6 +190,9 @@ app.post("/admin/login", async (req, res) => {
   }
 });
 
+// ===============================
+// USER ROUTES
+// ===============================
 app.get("/users", async (req, res) => {
   try {
     const users = await CustomerModel.find().sort({ createdAt: -1 });
@@ -232,8 +237,9 @@ app.delete("/users/delete/:id", async (req, res) => {
   }
 });
 
-
-
+// ===============================
+// PRODUCT ROUTES
+// ===============================
 app.post("/add-product", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "Image is required" });
@@ -275,8 +281,11 @@ app.get("/product/:id", async (req, res) => {
 app.put("/updateproduct/:id", upload.single("image"), async (req, res) => {
   try {
     const updateData = {
-      name: req.body.name, category: req.body.category,
-      description: req.body.description, price: req.body.price, quantity: req.body.quantity,
+      name:        req.body.name,
+      category:    req.body.category,
+      description: req.body.description,
+      price:       req.body.price,
+      quantity:    req.body.quantity,
     };
     if (req.file) {
       const result = await new Promise((resolve, reject) => {
@@ -300,8 +309,9 @@ app.delete("/delete-product/:id", async (req, res) => {
   res.json({ message: "Deleted" });
 });
 
-
-
+// ===============================
+// CART ROUTES
+// ===============================
 app.post("/cart", async (req, res) => {
   const { name, price, image } = req.body;
   const existing = await Cart.findOne({ name });
@@ -311,18 +321,31 @@ app.post("/cart", async (req, res) => {
   res.json(item);
 });
 
-app.get("/cart",        async (req, res) => { res.json(await Cart.find()); });
-app.delete("/cart/:id", async (req, res) => { await Cart.findByIdAndDelete(req.params.id); res.json({ message: "Removed from cart" }); });
+app.get("/cart", async (req, res) => {
+  res.json(await Cart.find());
+});
+
+app.delete("/cart/:id", async (req, res) => {
+  await Cart.findByIdAndDelete(req.params.id);
+  res.json({ message: "Removed from cart" });
+});
 
 app.put("/cart/:id", async (req, res) => {
   try {
-    const updated = await Cart.findByIdAndUpdate(req.params.id, { quantity: req.body.quantity }, { new: true });
+    const updated = await Cart.findByIdAndUpdate(
+      req.params.id,
+      { quantity: req.body.quantity },
+      { new: true }
+    );
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: "Error updating cart" });
   }
 });
 
+// ===============================
+// ORDER ROUTES
+// ===============================
 app.post("/place-order", async (req, res) => {
   const order = new Order(req.body);
   await order.save();
@@ -333,6 +356,76 @@ app.get("/order", async (req, res) => {
   res.json(await Order.find());
 });
 
+// GET single order by id
+app.get("/order/:id", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    res.json(order);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Error fetching order" });
+  }
+});
+
+// UPDATE order status (admin edit order) + send email to customer
+app.put("/order/:id", async (req, res) => {
+  try {
+    const { orderStatus, paymentStatus } = req.body;
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { orderStatus, paymentStatus },
+      { new: true }
+    );
+
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    res.json({ success: true, message: "Order updated", order });
+
+    // Send status update email to customer
+    try {
+      await sgMail.send({
+        from:    process.env.SENDGRID_EMAIL,
+        to:      order.email,
+        subject: `Your FirstCry Order Update - #${String(order._id).slice(-6).toUpperCase()}`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;
+                      padding:24px;border:1px solid #eee;border-radius:10px;">
+            <h2 style="color:#e91e63;">FirstCry - Order Update</h2>
+            <p>Dear <strong>${order.fullName}</strong>,</p>
+            <p>Your order status has been updated.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+              <tr>
+                <td style="padding:8px;background:#f5f0ff;"><strong>Order ID</strong></td>
+                <td style="padding:8px;">#${String(order._id).slice(-6).toUpperCase()}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px;background:#f5f0ff;"><strong>Order Status</strong></td>
+                <td style="padding:8px;color:#e91e63;"><strong>${order.orderStatus}</strong></td>
+              </tr>
+              <tr>
+                <td style="padding:8px;background:#f5f0ff;"><strong>Payment Status</strong></td>
+                <td style="padding:8px;">${order.paymentStatus}</td>
+              </tr>
+            </table>
+            <p>Thank you for shopping with FirstCry!</p>
+            <p style="color:#888;font-size:12px;">Team FirstCry</p>
+          </div>
+        `
+      });
+      console.log("Status update email sent to:", order.email);
+    } catch (emailErr) {
+      console.log("Email failed:", emailErr.message);
+    }
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Error updating order" });
+  }
+});
+
+// UPDATE payment after checkout
 app.put("/update-payment/:orderId", async (req, res) => {
   try {
     const { paymentMethod, status, paymentId } = req.body;
@@ -354,10 +447,10 @@ app.put("/update-payment/:orderId", async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    
+    // Send response first
     res.json({ success: true, message: "Payment updated successfully" });
 
-   
+    // Then send GST invoice email
     try {
       const pdfBuffer = await generateInvoicePDF(order);
       await sendInvoiceEmail(order, pdfBuffer);
@@ -372,6 +465,19 @@ app.put("/update-payment/:orderId", async (req, res) => {
   }
 });
 
+// GET orders by user email
+app.get("/my-orders/:email", async (req, res) => {
+  try {
+    const orders = await Order.find({ email: req.params.email }).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching orders" });
+  }
+});
+
+// ===============================
+// RAZORPAY ROUTES
+// ===============================
 app.post("/create-razorpay-order", async (req, res) => {
   try {
     const order = await razorpay.orders.create({
@@ -385,57 +491,12 @@ app.post("/create-razorpay-order", async (req, res) => {
   }
 });
 
-
-app.post("/verify-payment", async (req, res) => {
-  try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
-
-    const sign     = razorpay_order_id + "|" + razorpay_payment_id;
-    const expected = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(sign)
-      .digest("hex");
-
-    if (expected !== razorpay_signature) {
-      return res.json({ success: false, message: "Invalid signature" });
-    }
-
-    const order = await Order.findByIdAndUpdate(
-      orderId,
-      { paymentStatus: "Paid", payment: "online", paymentId: razorpay_payment_id },
-      { new: true }
-    );
-
-    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
-
-    res.json({ success: true, message: "Payment verified!" });
-
-    try {
-      const pdfBuffer = await generateInvoicePDF(order);
-      await sendInvoiceEmail(order, pdfBuffer);
-      console.log("Invoice sent to:", order.email);
-    } catch (invoiceErr) {
-      console.log("Invoice email failed:", invoiceErr.message);
-    }
-
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-app.get("/my-orders/:email", async (req, res) => {
-  try {
-    const orders = await Order.find({ email: req.params.email }).sort({ createdAt: -1 });
-    res.json(orders);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching orders" });
-  }
-});
-
+// ===============================
+// ADMIN ROUTES
+// ===============================
 app.get("/admin/recent-orders", async (req, res) => {
   try {
-    const orders = await Order.find().sort({ orderDate: -1 }).limit(50);
+    const orders = await Order.find().sort({ createdAt: -1 }).limit(50);
     res.json(orders);
   } catch (err) {
     res.status(500).json({ message: "Error fetching recent orders" });
@@ -458,192 +519,9 @@ app.get("/admin/stats", async (req, res) => {
   }
 });
 
-
-export function generateInvoicePDF(order) {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: "A4" });
-    const buffers = [];
-
-    doc.on("data", chunk => buffers.push(chunk));
-    doc.on("error", reject);
-    doc.on("end", () => resolve(Buffer.concat(buffers)));
-
-    const pageWidth = 595;
-    const margin    = 50;
-
-    
-    doc.fontSize(28).fillColor("#e91e63").font("Helvetica-Bold")
-      .text("FirstCry", margin, 45);
-    doc.fontSize(9).fillColor("#555").font("Helvetica")
-      .text("Online Baby & Kids Store", margin, 78);
-
-    const rightX = 340;
-    doc.fontSize(9).fillColor("#333").font("Helvetica-Bold")
-      .text("Corporate Office:", rightX, 45);
-    doc.font("Helvetica").fillColor("#555")
-      .text("FirstCry, 4th Floor, Wework Prestige Central,", rightX, 57)
-      .text("36, Infantry Road, Bangalore - 560001",         rightX, 69)
-      .text("GSTIN: 27AAJCB2616N1ZK",                       rightX, 81)
-      .text("Support: support@firstcry.com",                 rightX, 93)
-      .text("Phone: +91 9090909090",                         rightX, 105);
-
-   
-    doc.y = 130;
-    doc.fontSize(14).fillColor("#000").font("Helvetica-Bold")
-      .text("OFFICIAL RECEIPT", margin, doc.y);
-    doc.moveTo(margin, doc.y + 18).lineTo(pageWidth - margin, doc.y + 18)
-      .lineWidth(1).strokeColor("#ccc").stroke();
-    doc.moveDown(1.8);
-
-   
-    const col1  = margin;
-    const col2  = 320;
-    const infoY = doc.y;
-
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#333")
-      .text("Invoice #:",  col1, infoY)
-      .text("Order ID:",   col1, infoY + 14)
-      .text("Date:",       col1, infoY + 28)
-      .text("Payment:",    col1, infoY + 42)
-      .text("Status:",     col1, infoY + 56);
-
-    doc.font("Helvetica").fillColor("#555")
-      .text(`INV-${String(order._id).slice(-6).toUpperCase()}`,  col1 + 58, infoY)
-      .text(String(order._id),                                    col1 + 58, infoY + 14)
-      .text(new Date(order.createdAt).toLocaleDateString("en-IN"),col1 + 58, infoY + 28)
-      .text(order.payment === "cod" ? "COD" : "Online",           col1 + 58, infoY + 42)
-      .text(order.orderStatus,                                     col1 + 58, infoY + 56);
-
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#333")
-      .text("Billed To:", col2, infoY);
-    doc.font("Helvetica").fillColor("#555")
-      .text(order.fullName, col2, infoY + 14)
-      .text(order.email,    col2, infoY + 26)
-      .text(order.phone,    col2, infoY + 38)
-      .text(`${order.address}, ${order.city}, ${order.state} - ${order.pincode}`,
-            col2, infoY + 50, { width: 210 });
-
-    doc.y = infoY + 110;
-
-
-    const tableTop   = doc.y;
-    const colItem    = margin;
-    const colQty     = 255;
-    const colBase    = 305;
-    const colCGST    = 365;
-    const colSGST    = 420;
-    const colTotal   = 475;
-    const tableRight = pageWidth - margin;
-
-    doc.rect(margin, tableTop, tableRight - margin, 22).fill("#f0f0f0");
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#333")
-      .text("Item",    colItem + 3, tableTop + 6, { width: 245 })
-      .text("Qty",     colQty,      tableTop + 6)
-      .text("Base",    colBase,     tableTop + 6)
-      .text("CGST",    colCGST,     tableTop + 6)
-      .text("SGST",    colSGST,     tableTop + 6)
-      .text("Total",   colTotal,    tableTop + 6);
-
-    doc.moveTo(margin, tableTop + 22).lineTo(tableRight, tableTop + 22)
-      .lineWidth(0.5).strokeColor("#ccc").stroke();
-
-    let rowY = tableTop + 30;
-    let taxableSubtotal = 0;
-    let totalCGST = 0;
-
-    order.items.forEach((item, i) => {
-      const qty      = item.quantity || 1;
-      const price    = item.price    || 0;
-      const total    = price * qty;
-      const base     = Math.round((total / 1.18) * 100) / 100;
-      const cgst     = Math.round(((total - base) / 2) * 100) / 100;
-
-      taxableSubtotal += base;
-      totalCGST       += cgst;
-
-      if (i % 2 === 0) doc.rect(margin, rowY - 4, tableRight - margin, 22).fill("#fafafa");
-
-      doc.fontSize(8).font("Helvetica").fillColor("#333")
-        .text(item.name,              colItem + 3, rowY, { width: 245 })
-        .text(String(qty),            colQty,      rowY)
-        .text(base.toFixed(2),        colBase,     rowY)
-        .text(cgst.toFixed(2),        colCGST,     rowY)
-        .text(cgst.toFixed(2),        colSGST,     rowY)
-        .text(total.toFixed(2),       colTotal,    rowY);
-
-      doc.moveTo(margin, rowY + 18).lineTo(tableRight, rowY + 18)
-        .lineWidth(0.3).strokeColor("#eee").stroke();
-
-      rowY += 24;
-    });
-
-    rowY += 12;
-    doc.moveTo(margin, rowY).lineTo(tableRight, rowY)
-      .lineWidth(0.5).strokeColor("#ccc").stroke();
-    rowY += 10;
-
-    const totalTax = totalCGST * 2;
-    const labelX   = 360;
-    const valueX   = 475;
-
-    doc.fontSize(9).font("Helvetica").fillColor("#555")
-      .text("Taxable Subtotal:",     labelX, rowY)
-      .text(taxableSubtotal.toFixed(2), valueX, rowY)
-      .text("Total Tax (GST 18%):",  labelX, rowY + 14)
-      .text(totalTax.toFixed(2),     valueX, rowY + 14)
-      .text("Shipping:",             labelX, rowY + 28)
-      .text("FREE",                  valueX, rowY + 28);
-
-    rowY += 48;
-    doc.rect(labelX - 5, rowY - 4, tableRight - labelX + 5, 22).fill("#e91e63");
-    doc.fontSize(10).font("Helvetica-Bold").fillColor("#fff")
-      .text("Grand Total:",          labelX,  rowY + 3)
-      .text(order.total.toFixed(2),  valueX,  rowY + 3);
-
-
-    rowY += 45;
-    doc.moveTo(margin, rowY).lineTo(tableRight, rowY)
-      .lineWidth(0.5).strokeColor("#ccc").stroke();
-    doc.fontSize(9).font("Helvetica").fillColor("#888")
-      .text("Thank you for shopping with FirstCry!", margin, rowY + 10,
-            { align: "center", width: tableRight - margin })
-      .text("This is a computer-generated invoice. No signature required.",
-            margin, rowY + 22, { align: "center", width: tableRight - margin });
-
-    doc.end();
-  });
-}
-
-
-export async function sendInvoiceEmail(order, pdfBuffer) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-  await sgMail.send({
-    from:    process.env.SENDGRID_EMAIL,
-    to:      order.email,
-    subject: `GST Invoice - Order #${String(order._id).slice(-6).toUpperCase()} - FirstCry`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;padding:20px;">
-        <h2 style="color:#e91e63;">FirstCry - Order Confirmed!</h2>
-        <p>Dear <strong>${order.fullName}</strong>,</p>
-        <p>Thank you for shopping with FirstCry!</p>
-        <p>Your GST invoice is attached for Order
-           <strong>#${String(order._id).slice(-6).toUpperCase()}</strong>.</p>
-        <p>Grand Total: <strong>₹${order.total}</strong></p>
-        <p>Payment: <strong>${order.payment === "cod" ? "Cash on Delivery" : "Online"}</strong></p>
-        <br/>
-        <p style="color:#888;font-size:12px;">Team FirstCry</p>
-      </div>
-    `,
-    attachments: [{
-      filename:    `FirstCry_Invoice_${String(order._id).slice(-6).toUpperCase()}.pdf`,
-      content:     pdfBuffer.toString("base64"),
-      type:        "application/pdf",
-      disposition: "attachment"
-    }]
-  });
-}
-
+// ===============================
+// BASE ROUTE
+// ===============================
 app.get("/", (req, res) => res.send("Backend Running"));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
