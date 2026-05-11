@@ -20,12 +20,11 @@ dotenv.config();
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
-const corsOptions = {
+app.use(cors({
   origin:         "*",
   methods:        ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
-};
-app.use(cors(corsOptions));
+}));
 app.use(express.json());
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -68,8 +67,7 @@ app.get("/test-email", async (req, res) => {
     });
     res.json({ success: true, message: "Email sent!" });
   } catch (err) {
-    console.error("TEST EMAIL ERROR:", err.message);
-    res.json({ success: false, error: err.message, details: err?.response?.body });
+    res.json({ success: false, error: err.message });
   }
 });
 
@@ -92,7 +90,6 @@ app.post("/register", async (req, res) => {
     }
     res.json({ success: true, message: "Registered successfully" });
   } catch (err) {
-    console.error("Register error:", err.message);
     if (err.code === 11000)
       return res.json({ success: false, message: "Email already exists. Please login." });
     res.status(500).json({ success: false, message: "Registration failed" });
@@ -105,7 +102,7 @@ app.post("/sendVerifyOtp", async (req, res) => {
     if (!email) return res.status(400).json({ success: false, message: "Email required" });
 
     const user = await CustomerModel.findOne({ email });
-    if (!user) return res.status(404).json({ success: false, message: "User not found. Please register first." });
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.otp  = otp;
@@ -120,16 +117,15 @@ app.post("/sendVerifyOtp", async (req, res) => {
                     padding:30px;border:1px solid #eee;border-radius:10px;">
           <h2 style="color:#e91e63;">FirstCry - Email Verification</h2>
           <p>Hello <strong>${user.name}</strong>,</p>
-          <p>Your OTP for email verification is:</p>
+          <p>Your OTP is:</p>
           <div style="font-size:36px;font-weight:bold;letter-spacing:10px;
                       color:#e91e63;text-align:center;padding:20px 0;">${otp}</div>
-          <p style="color:#888;font-size:13px;">Valid for 10 minutes. Do not share with anyone.</p>
+          <p style="color:#888;font-size:13px;">Valid for 10 minutes.</p>
         </div>
       `
     });
     res.json({ success: true, message: "OTP sent successfully" });
   } catch (err) {
-    console.error("sendVerifyOtp error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -152,7 +148,6 @@ app.post("/verifyOtp", async (req, res) => {
       res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
     }
   } catch (err) {
-    console.error("verifyOtp error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -173,7 +168,6 @@ app.post("/login", async (req, res) => {
 
     res.json({ success: true, message: "Login successful", user: { name: user.name, email: user.email } });
   } catch (err) {
-    console.error("Login error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -185,7 +179,6 @@ app.post("/admin/login", async (req, res) => {
       return res.json({ success: true, message: "Admin login successful" });
     res.json({ success: false, message: "Invalid admin credentials" });
   } catch (err) {
-    console.error("Admin login error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -321,21 +314,15 @@ app.post("/cart", async (req, res) => {
   res.json(item);
 });
 
-app.get("/cart", async (req, res) => {
-  res.json(await Cart.find());
-});
-
+app.get("/cart",        async (req, res) => { res.json(await Cart.find()); });
 app.delete("/cart/:id", async (req, res) => {
   await Cart.findByIdAndDelete(req.params.id);
   res.json({ message: "Removed from cart" });
 });
-
 app.put("/cart/:id", async (req, res) => {
   try {
     const updated = await Cart.findByIdAndUpdate(
-      req.params.id,
-      { quantity: req.body.quantity },
-      { new: true }
+      req.params.id, { quantity: req.body.quantity }, { new: true }
     );
     res.json(updated);
   } catch (err) {
@@ -353,22 +340,21 @@ app.post("/place-order", async (req, res) => {
 });
 
 app.get("/order", async (req, res) => {
-  res.json(await Order.find());
+  res.json(await Order.find().sort({ createdAt: -1 }));
 });
 
-// GET single order by id
+// GET single order
 app.get("/order/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: "Order not found" });
     res.json(order);
   } catch (err) {
-    console.log(err);
     res.status(500).json({ message: "Error fetching order" });
   }
 });
 
-// UPDATE order status (admin edit order) + send email to customer
+// UPDATE order status — send invoice PDF when Delivered
 app.put("/order/:id", async (req, res) => {
   try {
     const { orderStatus, paymentStatus } = req.body;
@@ -381,42 +367,54 @@ app.put("/order/:id", async (req, res) => {
 
     if (!order) return res.status(404).json({ message: "Order not found" });
 
+    // Send response immediately
     res.json({ success: true, message: "Order updated", order });
 
-    // Send status update email to customer
-    try {
-      await sgMail.send({
-        from:    process.env.SENDGRID_EMAIL,
-        to:      order.email,
-        subject: `Your FirstCry Order Update - #${String(order._id).slice(-6).toUpperCase()}`,
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;
-                      padding:24px;border:1px solid #eee;border-radius:10px;">
-            <h2 style="color:#e91e63;">FirstCry - Order Update</h2>
-            <p>Dear <strong>${order.fullName}</strong>,</p>
-            <p>Your order status has been updated.</p>
-            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-              <tr>
-                <td style="padding:8px;background:#f5f0ff;"><strong>Order ID</strong></td>
-                <td style="padding:8px;">#${String(order._id).slice(-6).toUpperCase()}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px;background:#f5f0ff;"><strong>Order Status</strong></td>
-                <td style="padding:8px;color:#e91e63;"><strong>${order.orderStatus}</strong></td>
-              </tr>
-              <tr>
-                <td style="padding:8px;background:#f5f0ff;"><strong>Payment Status</strong></td>
-                <td style="padding:8px;">${order.paymentStatus}</td>
-              </tr>
-            </table>
-            <p>Thank you for shopping with FirstCry!</p>
-            <p style="color:#888;font-size:12px;">Team FirstCry</p>
-          </div>
-        `
-      });
-      console.log("Status update email sent to:", order.email);
-    } catch (emailErr) {
-      console.log("Email failed:", emailErr.message);
+    // ── If status changed to Delivered → send GST Invoice PDF ──
+    if (orderStatus === "Delivered") {
+      try {
+        const pdfBuffer = await generateInvoicePDF(order);
+        await sendInvoiceEmail(order, pdfBuffer);
+        console.log("Delivery invoice sent to:", order.email);
+      } catch (invoiceErr) {
+        console.log("Invoice email failed:", invoiceErr.message);
+      }
+    } else {
+      // ── For other status changes → send plain status update email ──
+      try {
+        await sgMail.send({
+          from:    process.env.SENDGRID_EMAIL,
+          to:      order.email,
+          subject: `Your FirstCry Order Update - #${String(order._id).slice(-6).toUpperCase()}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;
+                        padding:24px;border:1px solid #eee;border-radius:10px;">
+              <h2 style="color:#e91e63;">FirstCry - Order Update</h2>
+              <p>Dear <strong>${order.fullName}</strong>,</p>
+              <p>Your order status has been updated.</p>
+              <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                <tr>
+                  <td style="padding:8px;background:#f5f0ff;"><strong>Order ID</strong></td>
+                  <td style="padding:8px;">#${String(order._id).slice(-6).toUpperCase()}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px;background:#f5f0ff;"><strong>Order Status</strong></td>
+                  <td style="padding:8px;color:#e91e63;"><strong>${order.orderStatus}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding:8px;background:#f5f0ff;"><strong>Payment Status</strong></td>
+                  <td style="padding:8px;">${order.paymentStatus}</td>
+                </tr>
+              </table>
+              <p>Thank you for shopping with FirstCry!</p>
+              <p style="color:#888;font-size:12px;">Team FirstCry</p>
+            </div>
+          `
+        });
+        console.log("Status update email sent to:", order.email);
+      } catch (emailErr) {
+        console.log("Status email failed:", emailErr.message);
+      }
     }
 
   } catch (err) {
@@ -425,43 +423,13 @@ app.put("/order/:id", async (req, res) => {
   }
 });
 
-// UPDATE payment after checkout
-app.put("/update-payment/:orderId", async (req, res) => {
+// DELETE order
+app.delete("/order/:id", async (req, res) => {
   try {
-    const { paymentMethod, status, paymentId } = req.body;
-
-    const updateFields = {
-      payment:       paymentMethod || "cod",
-      paymentStatus: status === "paid" ? "Paid" : "Pending",
-    };
-
-    if (paymentId) updateFields.paymentId = paymentId;
-
-    const order = await Order.findByIdAndUpdate(
-      req.params.orderId,
-      updateFields,
-      { new: true }
-    );
-
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-
-    // Send response first
-    res.json({ success: true, message: "Payment updated successfully" });
-
-    // Then send GST invoice email
-    try {
-      const pdfBuffer = await generateInvoicePDF(order);
-      await sendInvoiceEmail(order, pdfBuffer);
-      console.log("GST Invoice sent to:", order.email);
-    } catch (invoiceErr) {
-      console.log("Invoice failed:", invoiceErr.message);
-    }
-
+    await Order.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Order deleted" });
   } catch (err) {
-    console.log("update-payment error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ message: "Error deleting order" });
   }
 });
 
@@ -476,6 +444,43 @@ app.get("/my-orders/:email", async (req, res) => {
 });
 
 // ===============================
+// PAYMENT ROUTES
+// ===============================
+app.put("/update-payment/:orderId", async (req, res) => {
+  try {
+    const { paymentMethod, status, paymentId } = req.body;
+
+    const updateFields = {
+      payment:       paymentMethod || "cod",
+      paymentStatus: status === "paid" ? "Paid" : "Pending",
+    };
+    if (paymentId) updateFields.paymentId = paymentId;
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.orderId,
+      updateFields,
+      { new: true }
+    );
+
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    res.json({ success: true, message: "Payment updated successfully" });
+
+    // Send GST invoice after payment
+    try {
+      const pdfBuffer = await generateInvoicePDF(order);
+      await sendInvoiceEmail(order, pdfBuffer);
+      console.log("GST Invoice sent to:", order.email);
+    } catch (invoiceErr) {
+      console.log("Invoice failed:", invoiceErr.message);
+    }
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ===============================
 // RAZORPAY ROUTES
 // ===============================
 app.post("/create-razorpay-order", async (req, res) => {
@@ -486,7 +491,6 @@ app.post("/create-razorpay-order", async (req, res) => {
     });
     res.json(order);
   } catch (err) {
-    console.log("create-razorpay-order error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -520,7 +524,7 @@ app.get("/admin/stats", async (req, res) => {
 });
 
 // ===============================
-// BASE ROUTE
+// BASE
 // ===============================
 app.get("/", (req, res) => res.send("Backend Running"));
 
