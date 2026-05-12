@@ -305,28 +305,78 @@ app.delete("/delete-product/:id", async (req, res) => {
 // ===============================
 // CART ROUTES
 // ===============================
+
+// Add to cart
 app.post("/cart", async (req, res) => {
-  const { name, price, image } = req.body;
-  const existing = await Cart.findOne({ name });
-  if (existing) { existing.quantity += 1; await existing.save(); return res.json(existing); }
-  const item = new Cart({ name, price, image, quantity: 1 });
-  await item.save();
-  res.json(item);
+  try {
+    const { name, price, image, quantity } = req.body;
+
+    if (!name || !price) {
+      return res.status(400).json({ success: false, message: "Name and price required" });
+    }
+
+    // If product already in cart → increase quantity
+    const existing = await Cart.findOne({ name });
+    if (existing) {
+      existing.quantity += quantity || 1;
+      await existing.save();
+      return res.json({ success: true, message: "Cart updated", item: existing });
+    }
+
+    // Else create new cart item
+    const newItem = new Cart({
+      name,
+      price,
+      image,
+      quantity: quantity || 1,
+    });
+    await newItem.save();
+    res.json({ success: true, message: "Added to cart", item: newItem });
+
+  } catch (err) {
+    console.error("Cart error:", err.message);
+    res.status(500).json({ success: false, message: "Error adding to cart" });
+  }
 });
 
-app.get("/cart",        async (req, res) => { res.json(await Cart.find()); });
-app.delete("/cart/:id", async (req, res) => {
-  await Cart.findByIdAndDelete(req.params.id);
-  res.json({ message: "Removed from cart" });
+// Get all cart items
+app.get("/cart", async (req, res) => {
+  try {
+    const items = await Cart.find();
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching cart" });
+  }
 });
+
+// Remove item from cart
+app.delete("/cart/:id", async (req, res) => {
+  try {
+    await Cart.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Removed from cart" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error removing from cart" });
+  }
+});
+
+// Update cart item quantity
 app.put("/cart/:id", async (req, res) => {
   try {
+    const { quantity } = req.body;
+
+    if (quantity < 1) {
+      await Cart.findByIdAndDelete(req.params.id);
+      return res.json({ success: true, message: "Item removed (quantity 0)" });
+    }
+
     const updated = await Cart.findByIdAndUpdate(
-      req.params.id, { quantity: req.body.quantity }, { new: true }
+      req.params.id,
+      { quantity },
+      { new: true }
     );
-    res.json(updated);
+    res.json({ success: true, item: updated });
   } catch (err) {
-    res.status(500).json({ message: "Error updating cart" });
+    res.status(500).json({ success: false, message: "Error updating cart" });
   }
 });
 
@@ -343,7 +393,6 @@ app.get("/order", async (req, res) => {
   res.json(await Order.find().sort({ createdAt: -1 }));
 });
 
-// GET single order
 app.get("/order/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -354,7 +403,6 @@ app.get("/order/:id", async (req, res) => {
   }
 });
 
-// UPDATE order status — send invoice PDF when Delivered
 app.put("/order/:id", async (req, res) => {
   try {
     const { orderStatus, paymentStatus } = req.body;
@@ -367,10 +415,8 @@ app.put("/order/:id", async (req, res) => {
 
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    // Send response immediately
     res.json({ success: true, message: "Order updated", order });
 
-    // ── If status changed to Delivered → send GST Invoice PDF ──
     if (orderStatus === "Delivered") {
       try {
         const pdfBuffer = await generateInvoicePDF(order);
@@ -380,7 +426,6 @@ app.put("/order/:id", async (req, res) => {
         console.log("Invoice email failed:", invoiceErr.message);
       }
     } else {
-      // ── For other status changes → send plain status update email ──
       try {
         await sgMail.send({
           from:    process.env.SENDGRID_EMAIL,
@@ -423,7 +468,6 @@ app.put("/order/:id", async (req, res) => {
   }
 });
 
-// DELETE order
 app.delete("/order/:id", async (req, res) => {
   try {
     await Order.findByIdAndDelete(req.params.id);
@@ -433,7 +477,6 @@ app.delete("/order/:id", async (req, res) => {
   }
 });
 
-// GET orders by user email
 app.get("/my-orders/:email", async (req, res) => {
   try {
     const orders = await Order.find({ email: req.params.email }).sort({ createdAt: -1 });
@@ -466,7 +509,6 @@ app.put("/update-payment/:orderId", async (req, res) => {
 
     res.json({ success: true, message: "Payment updated successfully" });
 
-    // Send GST invoice after payment
     try {
       const pdfBuffer = await generateInvoicePDF(order);
       await sendInvoiceEmail(order, pdfBuffer);
